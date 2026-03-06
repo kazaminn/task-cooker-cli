@@ -1,4 +1,4 @@
-# tck CLI 仕様書 v5
+# tck CLI 仕様書 v6
 
 last-updated: 2026-03-06
 
@@ -227,10 +227,10 @@ tck mix delete <id> --force
 ## ソースオブトゥルース
 
 ```
-task-*.md / mix-*.md  →  実データ（source of truth）
-index.json            →  機械用インデックス（CLIが生成・更新）
-master.todo           →  人間用ダッシュボード（手動管理）
-activity.log          →  操作履歴
+projects/*/task-*.md, mix-*.md  →  実データ（source of truth）
+.tck/index.json                 →  機械用インデックス（CLIが生成・更新）
+.tck/activity.log               →  操作履歴
+master.todo                     →  人間用ダッシュボード（手動管理）
 ```
 
 - CLIの操作はイシューファイルを更新し、`index.json` を同期更新する
@@ -242,12 +242,12 @@ activity.log          →  操作履歴
 ## ディレクトリ構造
 
 ```
-.tck/
-  config.json
-  counter.json
-  index.json
-  activity.log
-  projects/
+my-projects/                    # プロジェクトルート（任意のフォルダ名）
+  .tck/                         # 機械用（.gitignore対象にできる）
+    counter.json
+    index.json
+    activity.log
+  projects/                     # ユーザーが直接見る・編集するファイル
     project-1/
       project.md
       task-1.md
@@ -257,13 +257,19 @@ activity.log          →  操作履歴
     project-2/
       project.md
       task-3.md
+  master.todo                   # 人間用ダッシュボード
+  tck.config.json               # 設定ファイル
+  .gitignore
+  .prettierrc
 ```
 
+- `projects/` はプロジェクトルート直下に配置（`.tck` の外側）
+- `.tck/` には機械生成ファイルのみ（`counter.json`、`index.json`、`activity.log`）
+- `tck.config.json` はプロジェクトルート直下に配置
+- `master.todo` はプロジェクトルート直下に配置（人間が手動管理）
 - Firestoreのコレクション階層（`projects/{id}/tasks/{id}`、`projects/{id}/mixes/{id}`）に準拠
 - プロジェクト内はフォルダ分けせずファイルプレフィクスで区別
-- `.tck` ディレクトリは `cwd` 固定ではなく、Gitと同様に親ディレクトリを探索して解決する
-- `dataDir` 設定で探索起点を変更可能（グローバルインストール時に `~/.tck` 等を指定）
-- `master.todo` は `.tck` 外に配置（人間がプロジェクトルートで管理）
+- プロジェクトルートは `tck.config.json` または `.tck/` の存在で判定し、Git同様に親ディレクトリを探索して解決する
 
 ---
 
@@ -278,7 +284,7 @@ activity.log          →  操作履歴
 
 - `[ ]` / `[x]` 形式を使用（行頭の揃えやすさを優先）
 
-### インデックス（index.json）
+### インデックス（.tck/index.json）
 
 CLIが生成・更新する機械用インデックス。`tck list` のデータソース。
 
@@ -307,7 +313,7 @@ CLIが生成・更新する機械用インデックス。`tck list` のデータ
 }
 ```
 
-### イシューファイル（task-\*.md）
+### イシューファイル（projects/_/task-_.md）
 
 ヘッダー部にメタデータ、`---` 以降はマークダウン自由記述。
 
@@ -337,7 +343,7 @@ Tasks:
 - 最初の `---` のみをメタデータとマークダウン本文の区切りとして認識
 - `Created` / `Updated` はファイルのタイムスタンプ（`stat`）で管理し、ヘッダーには持たない
 
-### ミックスファイル（mix-\*.md）
+### ミックスファイル（projects/_/mix-_.md）
 
 ```
 Title: UIのレスポンシブ対応
@@ -362,7 +368,7 @@ Status: open
 
 ### マスターTODO（master.todo）
 
-人間用ダッシュボード。CLIは読み書きしない。プロジェクトルートに配置。
+人間用ダッシュボード。CLIは読み書きしない。プロジェクトルート直下に配置。
 
 ```
 MyYomuMoji:
@@ -414,7 +420,9 @@ task_create | task_update | mix_create | mix_post_create | project_create | proj
 
 ---
 
-## 設定（config.json）
+## 設定（tck.config.json）
+
+プロジェクトルート直下に配置。
 
 ```json
 {
@@ -423,7 +431,6 @@ task_create | task_update | mix_create | mix_post_create | project_create | proj
     "email": "suzuki@example.com"
   },
   "defaultProject": "project-1",
-  "dataDir": ".tck",
   "editor": "vim",
   "dateFormat": "YYYY-MM-DD",
   "language": "ja"
@@ -435,7 +442,6 @@ task_create | task_update | mix_create | mix_post_create | project_create | proj
 | `user.name`      | string | 投稿者名（ログ・コメント表示用）                |
 | `user.email`     | string | Firestore移行時のユーザー紐づけ用               |
 | `defaultProject` | string | `--proj` 省略時のデフォルトプロジェクトスラッグ |
-| `dataDir`        | string | データディレクトリのパス（デフォルト: `.tck`）  |
 | `editor`         | string | `$EDITOR` のフォールバック                      |
 | `dateFormat`     | string | タイムスタンプ表示形式                          |
 | `language`       | string | 出力言語（`ja` / `en`）                         |
@@ -454,6 +460,8 @@ task_create | task_update | mix_create | mix_post_create | project_create | proj
 - `--json` 出力は初期実装から対応（VSCode拡張・CI・スクリプト連携用）
 - サブタスクの集計・解析はCLIでは行わない（VSCode拡張の責務）
 - CLIは `master.todo` に触れない（人間用ダッシュボード）
+- ユーザーが直接触るファイル（`projects/`、`master.todo`、`tck.config.json`）は `.tck` の外に配置
+- 機械生成ファイル（`counter.json`、`index.json`、`activity.log`）は `.tck/` 内に配置
 
 ---
 
@@ -468,13 +476,10 @@ task_create | task_update | mix_create | mix_post_create | project_create | proj
 
 ---
 
-## v4からの変更点
+## v5からの変更点
 
-- `master.todo` をCLIの管理対象から除外（人間用ダッシュボードとして分離）
-- `.tck/index.json` を導入（CLIが生成・更新する機械用インデックス）
-- `tck list` のデータソースを `index.json` に変更
-- `tck rebuild` コマンドを追加（イシューファイルから `index.json` を再構築）
-- `master.todo` を `.tck` 外（プロジェクトルート）に移動
-- サブタスクの集計をCLIの責務外と明記（VSCode拡張に委譲）
-- CLI / VSCode拡張の責務分離を明記
-- IDの再利用不可を明記
+- `projects/` ディレクトリを `.tck` の外側（プロジェクトルート直下）に移動
+- `tck.config.json` を `.tck` の外側（プロジェクトルート直下）に移動（旧 `.tck/config.json`）
+- `.tck/` には機械生成ファイルのみ配置（`counter.json`、`index.json`、`activity.log`）
+- `dataDir` 設定を削除（`.tck` は常にプロジェクトルート直下の固定位置）
+- プロジェクトルートの判定に `tck.config.json` または `.tck/` の存在を使用

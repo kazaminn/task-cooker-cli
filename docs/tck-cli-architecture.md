@@ -1,4 +1,4 @@
-# tck CLI 実装設計書 v3
+# tck CLI 実装設計書 v4
 
 last-updated: 2026-03-06
 
@@ -22,7 +22,7 @@ last-updated: 2026-03-06
 2. **リポジトリは1リソース1責務**: `task.repo` はタスクファイルだけ、`counter.repo` はカウンタだけ
 3. **サービスはコンソール出力しない**: データを返すだけ。表示はコマンドハンドラーの責務
 4. **コマンドファイルは宣言だけ**: オプション定義と `.action(handler)` の紐づけのみ。ロジックはハンドラーに分離
-5. **`process.cwd()` を直接使わない**: `.tck` ディレクトリの解決は `util/path.ts` に集約。Git同様の親ディレクトリ探索
+5. **`process.cwd()` を直接使わない**: プロジェクトルートの解決は `util/path.ts` に集約。Git同様の親ディレクトリ探索
 6. **共通オプションは `Option` オブジェクトで再利用**: コマンドごとに `.option()` を繰り返さない
 7. **全ファイル書き込みは atomic write**: 一時ファイル → rename（クラッシュ対策）
 8. **CLIは `master.todo` に触れない**: 人間用ダッシュボードはCLIの管理対象外
@@ -31,11 +31,16 @@ last-updated: 2026-03-06
 
 ## ディレクトリ構造
 
+### CLIソースコード
+
 ```
-tck/
+task-cooker-cli/
   package.json
   tsconfig.json
+  tsconfig.build.json
   vitest.config.ts
+  scripts/
+    add-shebang.js
   bin/
     tck.ts                    # エントリポイント（shebang付き）
   src/
@@ -102,7 +107,7 @@ tck/
       activity.service.ts
     util/
       fs.ts                   # atomic write 等
-      path.ts                 # .tck ディレクトリ探索・パス解決
+      path.ts                 # プロジェクトルート探索・パス解決
       format.ts               # テーブル出力、日付フォーマット、JSON出力
       i18n.ts                 # 日本語・英語メッセージ
   tests/
@@ -124,6 +129,28 @@ tck/
       create.test.ts
       list.test.ts
       update.test.ts
+```
+
+### CLIが管理するデータ（ユーザーのプロジェクトルート）
+
+```
+my-projects/                    # プロジェクトルート（任意のフォルダ名）
+  .tck/                         # 機械用（.gitignore対象にできる）
+    counter.json
+    index.json
+    activity.log
+  projects/                     # ユーザーが直接見る・編集するファイル
+    project-1/
+      project.md
+      task-1.md
+      task-2.md
+      mix-1.md
+      mix-2.md
+    project-2/
+      project.md
+      task-3.md
+  master.todo                   # 人間用ダッシュボード（CLI管理対象外）
+  tck.config.json               # 設定ファイル
 ```
 
 ---
@@ -233,7 +260,6 @@ export interface TckConfig {
     email: string;
   };
   defaultProject: string;
-  dataDir: string;
   editor: string;
   dateFormat: string;
   language: 'ja' | 'en';
@@ -327,20 +353,29 @@ export class ConfigError extends TckError {
 
 ## パス解決（util/path.ts）
 
-`.tck` ディレクトリをGitと同様に親ディレクトリ探索で見つける。
+プロジェクトルートを `tck.config.json` または `.tck/` の存在で判定し、Git同様に親ディレクトリを探索して見つける。
 CLIコード・リポジトリ・サービスから `process.cwd()` を直接使わない。
 
 ```typescript
-export function findTckRoot(startDir?: string): string | null;
-export function getTckDir(): string; // 見つからなければ ConfigError
-export function getProjectDir(slug: string): string;
-export function getTaskFile(slug: string, id: number): string;
-export function getMixFile(slug: string, id: number): string;
-export function getProjectFile(slug: string): string;
-export function getConfigPath(): string;
-export function getCounterPath(): string;
-export function getIndexPath(): string;
-export function getActivityLogPath(): string;
+// プロジェクトルート探索
+export function findProjectRoot(startDir?: string): string | null;
+export function getProjectRoot(): string; // 見つからなければ ConfigError
+
+// .tck/ 内のファイル（機械用）
+export function getTckDir(): string; // {root}/.tck
+export function getCounterPath(): string; // {root}/.tck/counter.json
+export function getIndexPath(): string; // {root}/.tck/index.json
+export function getActivityLogPath(): string; // {root}/.tck/activity.log
+
+// プロジェクトルート直下のファイル
+export function getConfigPath(): string; // {root}/tck.config.json
+export function getProjectsDir(): string; // {root}/projects
+
+// プロジェクト内のファイル
+export function getProjectDir(slug: string): string; // {root}/projects/{slug}
+export function getTaskFile(slug: string, id: number): string; // {root}/projects/{slug}/task-{id}.md
+export function getMixFile(slug: string, id: number): string; // {root}/projects/{slug}/mix-{id}.md
+export function getProjectFile(slug: string): string; // {root}/projects/{slug}/project.md
 ```
 
 ---
@@ -583,8 +618,8 @@ const messages = {
 
 ### フェーズ0: プロジェクト初期化
 
-1. `package.json` / `tsconfig.json` / `vitest.config.ts` セットアップ
-2. `util/path.ts` - `.tck` ディレクトリ探索・パス解決（最初に作る）
+1. `package.json` / `tsconfig.json` / `tsconfig.build.json` / `vitest.config.ts` セットアップ
+2. `util/path.ts` - プロジェクトルート探索・パス解決（最初に作る）
 3. `util/fs.ts` - atomic write ユーティリティ
 4. `domain/types.ts` - 型定義
 5. `domain/constants.ts` - 定数
