@@ -7,7 +7,7 @@ const dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   test: {
     globals: true,
-    include: ['src/**/*.test.tsx'],
+    include: ['tests/**/*.test.ts', 'src/**/*.test.ts'],
   },
   resolve: {
     alias: {
