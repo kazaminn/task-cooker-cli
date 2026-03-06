@@ -1,4 +1,4 @@
-# AI Contexts
+# CLAUDE.md
 
 このファイルはClaude Code/Codex共通のプロジェクトガイドです。
 
@@ -35,16 +35,20 @@ pnpm ci             # typecheck → lint → format:check → test
 
 ## アーキテクチャ
 
+./src以下に集約する。
+
 ```
 bin/tck.ts           エントリポイント
-cli/commands/        コマンド定義（宣言のみ）
-cli/handlers/        コマンドハンドラー（入力処理・出力フォーマット）
-cli/options/         共通オプション（Option オブジェクト再利用）
-service/             ビジネスロジック
-repository/          ファイル I/O
-parser/              テキスト ↔ オブジェクト変換
-domain/              型・定数・エラー
-util/                ユーティリティ
+src/
+  cli/commands/        コマンド定義（宣言のみ）
+  cli/handlers/        コマンドハンドラー（入力処理・出力フォーマット）
+  cli/options/         共通オプション（Option オブジェクト再利用）
+  service/             ビジネスロジック
+  repository/          ファイル I/O
+  parser/              テキスト ↔ オブジェクト変換
+  domain/              型・定数・エラー
+  util/                ユーティリティ
+tests/
 ```
 
 依存は一方向: commands → handlers → service → repository → parser → domain
@@ -118,6 +122,8 @@ my-projects/
 - `tests/` ディレクトリに配置
 
 ## コミットメッセージ
+
+コミット規約: `./CONTRIBUTING.md`を参照すること。
 
 ```
 <emoji> <type>(<scope>): <subject>
