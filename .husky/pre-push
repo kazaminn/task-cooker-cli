@@ -1,0 +1,2 @@
+echo "[husky] pre-push: running build"
+pnpm run build

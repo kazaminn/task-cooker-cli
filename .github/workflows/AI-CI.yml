@@ -1,0 +1,49 @@
+name: AI CI
+
+on:
+  push:
+    branches-ignore:
+      - main
+    paths:
+      - 'src/**'
+      - 'bin/**'
+      - 'tests/**'
+      - 'vitest.config.ts'
+
+concurrency:
+  group: ai-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ai-check:
+    runs-on: ubuntu-latest
+
+    env:
+      BASE_REF: origin/main
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache Vitest
+        uses: actions/cache@v4
+        with:
+          path: .vitest
+          key: vitest-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Check only (no auto-fix in GitHub Actions)
+        run: pnpm run ai:check
