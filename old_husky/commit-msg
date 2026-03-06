@@ -1,0 +1,2 @@
+echo "[husky] commit-msg: running commitlint"
+npx --no -- commitlint --color false --edit "$1"

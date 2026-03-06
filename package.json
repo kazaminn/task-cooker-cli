@@ -1,0 +1,58 @@
+{
+  "name": "task-cooker-cli",
+  "version": "0.1.0",
+  "description": "TaskCooker CLI - タスクとミックスをコマンドラインで管理",
+  "author": "kazaminn",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "tck": "./dist/bin/tck.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node scripts/add-shebang.js",
+    "dev": "t-watch",
+    "test": "vitest --run",
+    "test:related": "vitest related --run",
+    "test:watch": "vitest",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "lint:strict": "eslint src/ --fix --no-warn-ignored",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit",
+    "prepare": "pnpm run build",
+    "ci": "run-s typecheck lint format:check test"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "eslint src/ --fix",
+      "prettier --write",
+      "vitest related --run"
+    ],
+    "*.{json,md,css,yml}": "prettier --write"
+  },
+  "dependencies": {
+    "commander": "^13.0.0"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^20.4.1",
+    "@commitlint/config-conventional": "^20.4.1",
+    "@trivago/prettier-plugin-sort-imports": "^6.0.2",
+    "@types/node": "^24.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "@vitest/coverage-v8": "^3.0.0",
+    "eslint": "^10.0.0",
+    "eslint-config-prettier": "^10.1.8",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "npm-run-all2": "^7.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
