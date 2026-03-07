@@ -1,0 +1,19 @@
+{
+  "name": "task-cooker-cli-sample-workspace",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Sample workspace for trying the TaskCooker CLI repository checkout",
+  "dependencies": {
+    "task-cooker-cli": "file:../.."
+  },
+  "scripts": {
+    "tck": "tck",
+    "help": "tck --help",
+    "project:list": "tck project list",
+    "list": "tck list",
+    "view": "tck view 1",
+    "mix": "tck mix view 1",
+    "task:create:new": "tck create new",
+    "mix:create:new": "tck mix create new"
+  }
+}

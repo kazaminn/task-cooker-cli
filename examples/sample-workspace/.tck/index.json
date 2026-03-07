@@ -1,0 +1,22 @@
+{
+  "tasks": [
+    {
+      "id": 1,
+      "project": "project-1",
+      "title": "Review the release package",
+      "status": "order",
+      "priority": "high",
+      "due": "2026-03-14",
+      "path": "projects/project-1/task-1.md"
+    }
+  ],
+  "mixes": [
+    {
+      "id": 1,
+      "project": "project-1",
+      "title": "Discuss rollout notes",
+      "status": "open",
+      "path": "projects/project-1/mix-1.md"
+    }
+  ]
+}

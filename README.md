@@ -2,19 +2,89 @@
 
 TaskCooker CLI (`tck`) is a Node.js command line tool for managing tasks and mixes (thread-style discussions) in plain text files.
 
+## Mental Model
+
+- `project`: a folder under `projects/`
+- `task`: one work item like `task-1.md`
+- `mix`: a discussion thread like `mix-1.md`
+- `.tck/`: machine-managed index, counters, and activity log
+
+If you only remember one thing: first `init`, then `project create`, then `create`, then `list`.
+
 ## Requirements
 
 - Node.js 20+
 - pnpm
 
-## Setup
+## Developer Setup
 
 ```sh
 pnpm install
 pnpm build
 ```
 
-Build output is generated under `dist/`. After building, you can run the CLI with `node dist/bin/tck.js` or link it locally with your preferred workflow.
+Build output is generated under `dist/`. `pnpm build` also creates a release-ready folder under `release/tck-cli-v<version>/` and a zip archive at `release/tck-cli-v<version>.zip`. After building, you can run the CLI with `node dist/bin/tck.js` or use the generated release package for local distribution.
+
+## Get Started
+
+There are two common ways to use this repository.
+
+### 1. Try the generated release package
+
+```sh
+cd release/tck-cli-v<version>
+pnpm install --prod --frozen-lockfile
+pnpm run help
+pnpm run project:create
+pnpm run sample:install
+pnpm run sample:start
+```
+
+Then open `release/tck-cli-v<version>/sample-project/README.md`.
+
+The source version of that sample workspace lives in `examples/sample-workspace/`.
+
+### 2. Use the CLI directly while developing
+
+```sh
+pnpm install
+pnpm build
+node dist/bin/tck.js --help
+```
+
+Create a workspace:
+
+```sh
+mkdir my-project
+cd my-project
+node /path/to/task-cooker-cli/dist/bin/tck.js init
+node /path/to/task-cooker-cli/dist/bin/tck.js project create "My Project" --slug project-1
+```
+
+## Release Package
+
+After `pnpm build`, a distributable folder is created at `release/tck-cli-v<version>/` with:
+
+- `dist/`
+- `package.json`
+- `README.md`
+- `pnpm-lock.yaml`
+- `sample-project/`
+
+The same build also creates `release/tck-cli-v<version>.zip`, which is the easiest artifact to upload to GitHub Releases.
+
+`sample-project/` is copied from `examples/sample-workspace/`, so user-facing sample data can be edited there.
+
+If `LICENSE` exists in the repository root, it is copied as well.
+
+From that folder, consumers can install runtime dependencies and execute the CLI:
+
+```sh
+cd release/tck-cli-v<version>
+pnpm install --prod --frozen-lockfile
+pnpm run help
+pnpm run task:create:new
+```
 
 ## Install As A Local Package
 
@@ -59,26 +129,33 @@ pnpm link --global task-cooker-cli
 ## Quick Start
 
 ```sh
-# initialize a workspace
+# 1. initialize a workspace
 node dist/bin/tck.js init
 
-# create a project
+# 2. create a project
 node dist/bin/tck.js project create "My Project" --slug project-1
 
-# create a task in the default project
+# 3. create a task in the default project
 node dist/bin/tck.js create "Investigate parser bug" --body "Initial notes"
 
-# inspect tasks
+# 4. inspect tasks
 node dist/bin/tck.js list
 node dist/bin/tck.js view 1
 
-# update task state
+# 5. update task state
 node dist/bin/tck.js update 1 --title "Investigate parser regression" --priority high
 node dist/bin/tck.js cook 1
 node dist/bin/tck.js serve 1
 
-# inspect activity history
+# 6. inspect activity history
 node dist/bin/tck.js log
+```
+
+Editor-based create flow:
+
+```sh
+node dist/bin/tck.js create new
+node dist/bin/tck.js mix create new
 ```
 
 ## Workspace Layout
@@ -103,7 +180,53 @@ my-project/
 - `.tck/` contains generated machine data.
 - `master.todo` is intentionally not managed by the CLI.
 
-## Commands
+## Common Commands
+
+### First-day flow
+
+```sh
+tck init
+tck project create "My Project" --slug project-1
+tck create "First task"
+tck list
+```
+
+### Task flow
+
+```sh
+tck create "Task title"
+tck create new
+tck list
+tck view 1
+tck update 1 --title "New title"
+tck prep 1
+tck cook 1
+tck serve 1
+tck delete 1 --force
+```
+
+### Mix flow
+
+```sh
+tck mix create --title "Discussion title"
+tck mix create new
+tck mix list
+tck mix view 1
+tck mix comment 1 --body "My comment"
+tck mix close 1
+```
+
+### Project flow
+
+```sh
+tck init
+tck project list
+tck project create "Project name" --slug project-1
+tck project view project-1
+tck project delete project-1 --force
+```
+
+## Full Command Reference
 
 ### Initialization and config
 

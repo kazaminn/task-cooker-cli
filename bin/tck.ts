@@ -4,9 +4,14 @@ import { TckError } from '../src/domain/errors.js';
 
 async function main(): Promise<void> {
   const program = createProgram();
-  program.exitOverride();
 
   try {
+    if (process.argv.length <= 2) {
+      program.outputHelp();
+      process.exitCode = 0;
+      return;
+    }
+
     await program.parseAsync(process.argv);
   } catch (error) {
     if (error instanceof TckError) {
@@ -21,8 +26,8 @@ async function main(): Promise<void> {
         return;
       }
 
-      console.error(error.message);
-      process.exitCode = 2;
+      program.outputHelp();
+      process.exitCode = 0;
       return;
     }
 

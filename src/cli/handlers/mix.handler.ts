@@ -3,6 +3,7 @@ import type { MixStatus } from '../../domain/types.js';
 import { formatTable, toJson } from '../../util/format.js';
 import { createCliContext } from '../context.js';
 import type { CliContext } from '../context.js';
+import { editTemporaryFile, resolveEditor } from './editor.util.js';
 import {
   getTranslator,
   parseSingleId,
@@ -57,18 +58,55 @@ async function resolveActorName(context: CliContext): Promise<string> {
   return config?.user.name ?? 'codex';
 }
 
+function createMixDraft(): string {
+  return ['# New mix', '', 'Write the first comment here.', ''].join('\n');
+}
+
+function parseMixDraft(content: string): { title: string; body?: string } {
+  const normalized = content.replace(/\r\n/g, '\n').trimEnd();
+  const lines = normalized.split('\n');
+  const title = (lines[0] ?? '').replace(/^#\s*/, '').trim();
+
+  if (!title) {
+    throw new ValidationError('タイトルを入力してください。');
+  }
+
+  const body = lines.slice(2).join('\n').trim();
+
+  return {
+    title,
+    body: body || undefined,
+  };
+}
+
 export async function mixCreateHandler(
+  mode: string | undefined,
   options: MixCreateOptions
 ): Promise<void> {
   const context = createCliContext();
   const t = await getTranslator(context);
   const projectSlug = await resolveProjectSlug(context, options.proj);
-  const body = await resolveBody(context, options);
   const actor = await resolveActorName(context);
+  let title = options.title ?? 'Untitled mix';
+  let body = await resolveBody(context, options);
+
+  if (mode === 'new') {
+    const config = await context.configRepository.load();
+    const editor = resolveEditor(config);
+    const draft = await editTemporaryFile(
+      editor,
+      'mix-draft.md',
+      createMixDraft(),
+      t('editorExitedAbnormally')
+    );
+    const parsed = parseMixDraft(draft);
+    title = parsed.title;
+    body = parsed.body;
+  }
 
   const mix = await context.mixService.create({
     projectSlug,
-    title: options.title ?? 'Untitled mix',
+    title,
   });
 
   if (body) {
