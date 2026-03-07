@@ -5,8 +5,12 @@ import { ConfigError } from '../domain/errors.js';
 const TCK_DIR = '.tck';
 const CONFIG_FILE = 'tck.config.json';
 
+export function getWorkingDir(): string {
+  return process.cwd();
+}
+
 export function findProjectRoot(
-  startDir: string = process.cwd()
+  startDir: string = getWorkingDir()
 ): string | null {
   let currentDir = path.resolve(startDir);
 
