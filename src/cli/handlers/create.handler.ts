@@ -45,7 +45,7 @@ export async function createHandler(
     type: 'task_create',
     projectId: projectSlug,
     taskId: task.id,
-    text: `タスクを作成: ${task.title}`,
+    text: t('activityTaskCreated', { title: task.title }),
   });
 
   if (options.json) {

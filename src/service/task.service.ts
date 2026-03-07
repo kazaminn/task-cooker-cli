@@ -5,6 +5,7 @@ import {
   TASK_STATUSES,
 } from '../domain/constants.js';
 import { NotFoundError, ValidationError } from '../domain/errors.js';
+import { createTranslator } from '../util/i18n.js';
 import type {
   Subtask,
   Task,
@@ -141,7 +142,8 @@ export class DefaultTaskService implements TaskService {
 
   async update(ids: number[], input: UpdateTaskInput): Promise<Task[]> {
     if (ids.length === 0) {
-      throw new ValidationError('更新対象のIDが必要です。');
+      const t = createTranslator('ja');
+      throw new ValidationError(t('taskUpdateIdsRequired'));
     }
 
     const updated: Task[] = [];

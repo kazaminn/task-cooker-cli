@@ -22,9 +22,7 @@ export async function changeStatusHandler(
   );
   const projectSlug = resolvedProjects[0];
   if (!resolvedProjects.every((slug) => slug === projectSlug)) {
-    throw new ValidationError(
-      '複数プロジェクトの task を同時更新できません。--proj で絞り込んでください。'
-    );
+    throw new ValidationError(t('multiProjectTaskUpdate'));
   }
 
   const tasks = await context.taskService.changeStatus(
@@ -38,7 +36,7 @@ export async function changeStatusHandler(
         type: 'task_update',
         projectId: task.projectSlug,
         taskId: task.id,
-        text: `ステータス変更: ${task.status}`,
+        text: t('activityTaskStatusChanged', { status: task.status }),
       })
     )
   );

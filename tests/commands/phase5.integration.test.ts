@@ -30,7 +30,7 @@ async function runCli(args: string[]) {
   return { stdout, stderr };
 }
 
-describe('Phase5 CLI integration', () => {
+describe.sequential('Phase5 CLI integration', () => {
   const originalCwd = process.cwd();
   let workspaceDir: string;
 

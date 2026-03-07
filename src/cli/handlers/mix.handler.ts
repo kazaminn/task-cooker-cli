@@ -2,6 +2,7 @@ import { ValidationError } from '../../domain/errors.js';
 import type { MixStatus } from '../../domain/types.js';
 import { formatTable, toJson } from '../../util/format.js';
 import { createCliContext } from '../context.js';
+import type { CliContext } from '../context.js';
 import {
   getTranslator,
   parseSingleId,
@@ -51,8 +52,7 @@ export interface MixDeleteOptions {
   json?: boolean;
 }
 
-async function resolveActorName(): Promise<string> {
-  const context = createCliContext();
+async function resolveActorName(context: CliContext): Promise<string> {
   const config = await context.configRepository.load();
   return config?.user.name ?? 'codex';
 }
@@ -64,7 +64,7 @@ export async function mixCreateHandler(
   const t = await getTranslator(context);
   const projectSlug = await resolveProjectSlug(context, options.proj);
   const body = await resolveBody(context, options);
-  const actor = await resolveActorName();
+  const actor = await resolveActorName(context);
 
   const mix = await context.mixService.create({
     projectSlug,
@@ -82,7 +82,7 @@ export async function mixCreateHandler(
     type: 'mix_create',
     projectId: projectSlug,
     mixId: mix.id,
-    text: `ミックスを作成: ${mix.title}`,
+    text: t('activityMixCreated', { title: mix.title }),
   });
 
   if (options.json) {
@@ -163,7 +163,7 @@ export async function mixEditHandler(
   }
 
   if (body) {
-    const actor = await resolveActorName();
+    const actor = await resolveActorName(context);
     mix = await context.mixService.addComment(id, projectSlug, {
       author: actor,
       body,
@@ -172,7 +172,7 @@ export async function mixEditHandler(
       type: 'mix_post_create',
       projectId: projectSlug,
       mixId: id,
-      text: `コメント追加 by ${actor}`,
+      text: t('activityMixCommentAdded', { actor }),
     });
   }
 
@@ -229,10 +229,10 @@ export async function mixCommentHandler(
   const id = parseSingleId(idInput);
   const body = await resolveBody(context, options);
   if (!body) {
-    throw new ValidationError('コメント本文を指定してください。');
+    throw new ValidationError(t('mixCommentBodyRequired'));
   }
 
-  const actor = await resolveActorName();
+  const actor = await resolveActorName(context);
   const projectSlug = await resolveMixProjectById(context, id, options.proj);
   const mix = await context.mixService.addComment(id, projectSlug, {
     author: actor,
@@ -243,7 +243,7 @@ export async function mixCommentHandler(
     type: 'mix_post_create',
     projectId: projectSlug,
     mixId: id,
-    text: `コメント追加 by ${actor}`,
+    text: t('activityMixCommentAdded', { actor }),
   });
 
   if (options.json) {
@@ -264,6 +264,12 @@ export async function mixDeleteHandler(
   const id = parseSingleId(idInput);
   const projectSlug = await resolveMixProjectById(context, id, options.proj);
   await context.mixService.delete(projectSlug, id);
+  await context.activityService.log({
+    type: 'mix_delete',
+    projectId: projectSlug,
+    mixId: id,
+    text: t('activityMixDeleted', { id }),
+  });
 
   if (options.json) {
     console.log(toJson({ ok: true, id, project: projectSlug }));

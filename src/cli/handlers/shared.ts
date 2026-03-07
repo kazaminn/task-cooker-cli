@@ -41,7 +41,7 @@ export async function resolveBody(
   }
 
   if (options.bodyFile) {
-    return fs.readFile(options.bodyFile, 'utf-8');
+    return await fs.readFile(options.bodyFile, 'utf-8');
   }
 
   return options.body;
@@ -50,7 +50,8 @@ export async function resolveBody(
 export function parseSingleId(value: string): number {
   const id = Number(value);
   if (!Number.isInteger(id) || id <= 0) {
-    throw new ValidationError(`IDが不正です: ${value}`);
+    const t = createTranslator('ja');
+    throw new ValidationError(t('invalidId', { value }));
   }
 
   return id;
@@ -58,7 +59,8 @@ export function parseSingleId(value: string): number {
 
 export function parseIds(values: string[]): number[] {
   if (values.length === 0) {
-    throw new ValidationError('IDを1つ以上指定してください。');
+    const t = createTranslator('ja');
+    throw new ValidationError(t('idsRequired'));
   }
 
   return values.map((value) => parseSingleId(value));
@@ -81,9 +83,8 @@ export async function resolveTaskProjectById(
   }
 
   if (entries.length > 1) {
-    throw new ValidationError(
-      `task #${id} が複数プロジェクトで見つかりました。--proj を指定してください。`
-    );
+    const t = await getTranslator(context);
+    throw new ValidationError(t('taskProjectAmbiguous', { id }));
   }
 
   return entries[0].project;
@@ -106,9 +107,8 @@ export async function resolveMixProjectById(
   }
 
   if (entries.length > 1) {
-    throw new ValidationError(
-      `mix #${id} が複数プロジェクトで見つかりました。--proj を指定してください。`
-    );
+    const t = await getTranslator(context);
+    throw new ValidationError(t('mixProjectAmbiguous', { id }));
   }
 
   return entries[0].project;

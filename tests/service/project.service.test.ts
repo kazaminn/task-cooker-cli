@@ -17,7 +17,14 @@ describe('DefaultProjectService', () => {
     };
     const service = new DefaultProjectService(
       projectRepository,
-      counterRepository
+      counterRepository,
+      {
+        rebuild: vi.fn(),
+        updateTask: vi.fn(),
+        removeTask: vi.fn(),
+        updateMix: vi.fn(),
+        removeMix: vi.fn(),
+      }
     );
 
     const project = await service.create({ name: 'Project X' });
@@ -38,7 +45,14 @@ describe('DefaultProjectService', () => {
         save: vi.fn(),
         remove: vi.fn(),
       },
-      { load: vi.fn(), save: vi.fn(), next: vi.fn() }
+      { load: vi.fn(), save: vi.fn(), next: vi.fn() },
+      {
+        rebuild: vi.fn(),
+        updateTask: vi.fn(),
+        removeTask: vi.fn(),
+        updateMix: vi.fn(),
+        removeMix: vi.fn(),
+      }
     );
 
     await expect(service.getBySlug('missing')).rejects.toBeInstanceOf(

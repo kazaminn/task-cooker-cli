@@ -41,7 +41,7 @@ function setValueByKey(
     case 'language':
       if (value !== 'ja' && value !== 'en') {
         throw new ValidationError(
-          'language は ja または en を指定してください。'
+          t('invalidLanguage')
         );
       }
       return { ...config, language: value };
@@ -63,9 +63,10 @@ async function loadConfigOrThrow(): Promise<TckConfig> {
 
 export async function configGetHandler(key?: string): Promise<void> {
   const config = await loadConfigOrThrow();
+  const t = createTranslator(config.language);
   const value = getValueByKey(config, key);
   if (value === undefined) {
-    throw new ValidationError(`設定キーが見つかりません: ${key ?? ''}`);
+    throw new ValidationError(t('configKeyNotFound', { key: key ?? '' }));
   }
 
   if (typeof value === 'object') {
