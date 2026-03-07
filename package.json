@@ -10,7 +10,7 @@
     "tck": "./dist/bin/tck.js"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && node scripts/add-shebang.js",
+    "build": "tsc -p tsconfig.build.json && node scripts/add-shebang.js && node scripts/create-release-package.js",
     "dev": "t-watch",
     "test": "vitest --run --pass-with-no-tests",
     "test:coverage": "vitest --pass-with-no-tests --run --mode test --coverage",
@@ -39,7 +39,10 @@
     "*.{json,md,css,yml}": "prettier --write"
   },
   "dependencies": {
-    "commander": "^13.0.0"
+    "commander": "^13.0.0",
+    "date-fns": "^4.1.0",
+    "date-fns-tz": "^3.2.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.4.1",

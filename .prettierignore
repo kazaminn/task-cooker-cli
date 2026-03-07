@@ -5,6 +5,7 @@ pnpm-workspace.yaml
 node_modules/
 
 dist
+release
 
 .github/
 .husky/
