@@ -40,9 +40,7 @@ function setValueByKey(
       return { ...config, dateFormat: value };
     case 'language':
       if (value !== 'ja' && value !== 'en') {
-        throw new ValidationError(
-          t('invalidLanguage')
-        );
+        throw new ValidationError(t('invalidLanguage'));
       }
       return { ...config, language: value };
     default:

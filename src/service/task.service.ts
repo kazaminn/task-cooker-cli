@@ -5,7 +5,6 @@ import {
   TASK_STATUSES,
 } from '../domain/constants.js';
 import { NotFoundError, ValidationError } from '../domain/errors.js';
-import { createTranslator } from '../util/i18n.js';
 import type {
   Subtask,
   Task,
@@ -17,6 +16,7 @@ import type {
 import type { CounterRepository } from '../repository/counter.repo.js';
 import type { IndexRepository } from '../repository/index.repo.js';
 import type { TaskRepository } from '../repository/task.repo.js';
+import { createTranslator } from '../util/i18n.js';
 import type { IndexService } from './index.service.js';
 
 export interface CreateTaskInput {

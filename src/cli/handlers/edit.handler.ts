@@ -3,7 +3,11 @@ import { ValidationError } from '../../domain/errors.js';
 import type { TckConfig } from '../../domain/types.js';
 import { getTaskFile } from '../../util/path.js';
 import { createCliContext } from '../context.js';
-import { getTranslator, parseSingleId, resolveTaskProjectById } from './shared.js';
+import {
+  getTranslator,
+  parseSingleId,
+  resolveTaskProjectById,
+} from './shared.js';
 
 function runEditor(
   editor: string,
