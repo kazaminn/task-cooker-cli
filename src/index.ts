@@ -14,4 +14,6 @@ export * from './service/mix.service.js';
 export * from './service/project.service.js';
 export * from './service/task.service.js';
 export * from './util/fs.js';
+export * from './util/format.js';
+export * from './util/i18n.js';
 export * from './util/path.js';
