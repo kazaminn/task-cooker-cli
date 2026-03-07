@@ -48,7 +48,7 @@ export async function projectCreateHandler(
   await context.activityService.log({
     type: 'project_create',
     projectId: project.slug,
-    text: `プロジェクトを作成: ${project.name}`,
+    text: t('activityProjectCreated', { name: project.name }),
   });
 
   if (options.json) {
@@ -85,6 +85,11 @@ export async function projectDeleteHandler(
   const t = await getTranslator(context);
   await requireForce(context, options.force);
   await context.projectService.delete(slug);
+  await context.activityService.log({
+    type: 'project_delete',
+    projectId: slug,
+    text: t('activityProjectDeleted', { slug }),
+  });
 
   if (options.json) {
     console.log(toJson({ ok: true, slug }));

@@ -1,6 +1,5 @@
 import { promises as fs } from 'node:fs';
 import type { Activity, ActivityType } from '../domain/types.js';
-import { atomicWriteFile } from '../util/fs.js';
 import { getActivityLogPath } from '../util/path.js';
 
 export interface ActivityRepository {
@@ -20,17 +19,7 @@ export class FileActivityRepository implements ActivityRepository {
 
   async append(activity: Activity): Promise<void> {
     const logPath = getActivityLogPath(this.startDir);
-
-    try {
-      const current = await fs.readFile(logPath, 'utf-8');
-      await atomicWriteFile(logPath, `${current}${JSON.stringify(activity)}\n`);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-        throw error;
-      }
-
-      await atomicWriteFile(logPath, `${JSON.stringify(activity)}\n`);
-    }
+    await fs.appendFile(logPath, `${JSON.stringify(activity)}\n`, 'utf-8');
   }
 
   async findAll(filter?: {

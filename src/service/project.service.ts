@@ -26,12 +26,12 @@ export interface ProjectService {
 export class DefaultProjectService implements ProjectService {
   private readonly projectRepository: ProjectRepository;
   private readonly counterRepository: CounterRepository;
-  private readonly indexService?: IndexService;
+  private readonly indexService: IndexService;
 
   constructor(
     projectRepository: ProjectRepository,
     counterRepository: CounterRepository,
-    indexService?: IndexService
+    indexService: IndexService
   ) {
     this.projectRepository = projectRepository;
     this.counterRepository = counterRepository;
@@ -92,8 +92,6 @@ export class DefaultProjectService implements ProjectService {
     }
 
     await this.projectRepository.remove(slug);
-    if (this.indexService) {
-      await this.indexService.rebuild();
-    }
+    await this.indexService.rebuild();
   }
 }

@@ -7,6 +7,15 @@ import {
   FileProjectRepository,
   FileTaskRepository,
 } from '../index.js';
+import type {
+  ActivityRepository,
+  ConfigRepository,
+  CounterRepository,
+  IndexRepository,
+  MixRepository,
+  ProjectRepository,
+  TaskRepository,
+} from '../index.js';
 import {
   DefaultActivityService,
   DefaultIndexService,
@@ -14,20 +23,27 @@ import {
   DefaultProjectService,
   DefaultTaskService,
 } from '../index.js';
+import type {
+  ActivityService,
+  IndexService,
+  MixService,
+  ProjectService,
+  TaskService,
+} from '../index.js';
 
 export interface CliContext {
-  readonly activityRepository: FileActivityRepository;
-  readonly configRepository: FileConfigRepository;
-  readonly counterRepository: FileCounterRepository;
-  readonly indexRepository: FileIndexRepository;
-  readonly mixRepository: FileMixRepository;
-  readonly projectRepository: FileProjectRepository;
-  readonly taskRepository: FileTaskRepository;
-  readonly activityService: DefaultActivityService;
-  readonly indexService: DefaultIndexService;
-  readonly mixService: DefaultMixService;
-  readonly projectService: DefaultProjectService;
-  readonly taskService: DefaultTaskService;
+  readonly activityRepository: ActivityRepository;
+  readonly configRepository: ConfigRepository;
+  readonly counterRepository: CounterRepository;
+  readonly indexRepository: IndexRepository;
+  readonly mixRepository: MixRepository;
+  readonly projectRepository: ProjectRepository;
+  readonly taskRepository: TaskRepository;
+  readonly activityService: ActivityService;
+  readonly indexService: IndexService;
+  readonly mixService: MixService;
+  readonly projectService: ProjectService;
+  readonly taskService: TaskService;
 }
 
 export function createCliContext(startDir?: string): CliContext {

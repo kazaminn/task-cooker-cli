@@ -6,10 +6,13 @@ import { projectOption } from '../options/project.option.js';
 const activityTypeOption = new Option('--type <type>', 'ログ種別').choices([
   'task_create',
   'task_update',
+  'task_delete',
   'mix_create',
   'mix_post_create',
+  'mix_delete',
   'project_create',
   'project_update',
+  'project_delete',
 ]);
 
 export function registerLogCommand(program: Command): void {

@@ -24,10 +24,10 @@ export async function deleteHandler(
   const projectSlug = await resolveTaskProjectById(context, id, options.proj);
   await context.taskService.delete(projectSlug, id);
   await context.activityService.log({
-    type: 'task_update',
+    type: 'task_delete',
     projectId: projectSlug,
     taskId: id,
-    text: `タスクを削除: #${id}`,
+    text: t('activityTaskDeleted', { id }),
   });
 
   if (options.json) {

@@ -45,10 +45,13 @@ export interface Project {
 export type ActivityType =
   | 'task_create'
   | 'task_update'
+  | 'task_delete'
   | 'mix_create'
   | 'mix_post_create'
+  | 'mix_delete'
   | 'project_create'
-  | 'project_update';
+  | 'project_update'
+  | 'project_delete';
 
 export interface Activity {
   time: string;
