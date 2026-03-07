@@ -21,7 +21,7 @@ export function registerMixCommand(program: Command): void {
   const mix = program.command('mix').description('ミックス操作');
 
   mix
-    .command('create')
+    .command('create [mode]')
     .addOption(projectOption)
     .option('--title <text>', 'タイトル')
     .option('--body <text>', '本文')

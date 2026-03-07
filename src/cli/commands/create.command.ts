@@ -5,7 +5,7 @@ import { addTaskOptions } from '../options/task-options.js';
 
 export function registerCreateCommand(program: Command): void {
   const command = program
-    .command('create <title>')
+    .command('create [title]')
     .description('タスクを作成')
     .option('--mix <id>', 'ミックスに紐づけ')
     .option('--body <text>', '本文')

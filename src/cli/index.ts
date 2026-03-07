@@ -15,11 +15,14 @@ import { registerViewCommand } from './commands/view.command.js';
 
 export function createProgram(): Command {
   const program = new Command();
-  program
-    .name('tck')
-    .description('TaskCooker CLI')
-    .version('0.1.0')
-    .showHelpAfterError();
+  program.name('tck').description('TaskCooker CLI').version('0.1.0');
+  program.exitOverride();
+  program.configureOutput({
+    outputError: () => {
+      // Suppress Commander's default error line and let the entrypoint decide
+      // whether to show help or a translated application error.
+    },
+  });
 
   registerInitCommand(program);
   registerConfigCommand(program);

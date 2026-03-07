@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -33,14 +33,21 @@ async function runCli(args: string[]) {
 describe.sequential('Phase5 CLI integration', () => {
   const originalCwd = process.cwd();
   let workspaceDir: string;
+  let originalEditor: string | undefined;
 
   beforeEach(async () => {
     workspaceDir = await mkdtemp(path.join(tmpdir(), 'tck-phase5-'));
     process.chdir(workspaceDir);
+    originalEditor = process.env.EDITOR;
   });
 
   afterEach(async () => {
     process.chdir(originalCwd);
+    if (originalEditor === undefined) {
+      delete process.env.EDITOR;
+    } else {
+      process.env.EDITOR = originalEditor;
+    }
     vi.restoreAllMocks();
     await rm(workspaceDir, { recursive: true, force: true });
   });
@@ -161,5 +168,58 @@ describe.sequential('Phase5 CLI integration', () => {
       'utf-8'
     );
     expect(rawActivityLog.trim().split('\n')).toHaveLength(4);
+  });
+
+  it('creates a task and mix from editor drafts', async () => {
+    await runCli(['init']);
+    await runCli(['project', 'create', 'CLI Project', '--slug', 'project-1']);
+
+    const taskEditorScript = path.join(workspaceDir, 'task-editor.mjs');
+    await writeFile(
+      taskEditorScript,
+      [
+        "import { writeFileSync } from 'node:fs';",
+        'const filePath = process.argv[2];',
+        "writeFileSync(filePath, '# Drafted task\\nStatus: prep\\nPriority: urgent\\n\\nTask body from editor.\\n', 'utf8');",
+      ].join('\n'),
+      'utf8'
+    );
+    process.env.EDITOR = `node "${taskEditorScript}"`;
+
+    const createTaskResult = await runCli(['create', 'new']);
+    expect(createTaskResult.stderr).toEqual([]);
+    expect(createTaskResult.stdout[0]).toContain('#1');
+
+    const taskFile = await readFile(
+      path.join(workspaceDir, 'projects', 'project-1', 'task-1.md'),
+      'utf8'
+    );
+    expect(taskFile).toContain('Title: Drafted task');
+    expect(taskFile).toContain('Status: prep');
+    expect(taskFile).toContain('Priority: urgent');
+    expect(taskFile).toContain('Task body from editor.');
+
+    const mixEditorScript = path.join(workspaceDir, 'mix-editor.mjs');
+    await writeFile(
+      mixEditorScript,
+      [
+        "import { writeFileSync } from 'node:fs';",
+        'const filePath = process.argv[2];',
+        "writeFileSync(filePath, '# Drafted mix\\n\\nFirst comment from editor.\\n', 'utf8');",
+      ].join('\n'),
+      'utf8'
+    );
+    process.env.EDITOR = `node "${mixEditorScript}"`;
+
+    const createMixResult = await runCli(['mix', 'create', 'new']);
+    expect(createMixResult.stderr).toEqual([]);
+    expect(createMixResult.stdout[0]).toContain('#1');
+
+    const mixFile = await readFile(
+      path.join(workspaceDir, 'projects', 'project-1', 'mix-1.md'),
+      'utf8'
+    );
+    expect(mixFile).toContain('Title: Drafted mix');
+    expect(mixFile).toContain('First comment from editor.');
   });
 });

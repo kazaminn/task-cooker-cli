@@ -1,0 +1,10 @@
+{
+  "user": {
+    "name": "sample-user",
+    "email": "sample@example.com"
+  },
+  "defaultProject": "project-1",
+  "editor": "vi",
+  "dateFormat": "YYYY-MM-DD",
+  "language": "ja"
+}
