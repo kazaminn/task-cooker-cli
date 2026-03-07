@@ -1,8 +1,9 @@
-import { parseCheckboxLines } from './checkbox.js';
+import type { Subtask } from '../domain/types.js';
+import { formatCheckboxLines, parseCheckboxLines } from './checkbox.js';
 
 export interface ParsedIssueFile {
   metadata: Record<string, string>;
-  subtasks: ReturnType<typeof parseCheckboxLines>;
+  subtasks: Subtask[];
   body: string;
 }
 
@@ -54,6 +55,11 @@ export function formatIssueFile(parsed: ParsedIssueFile): string {
   const headerLines = Object.entries(parsed.metadata).map(
     ([key, value]) => `${key}: ${value}`
   );
+
+  if (parsed.subtasks.length > 0) {
+    headerLines.push('Tasks:');
+    headerLines.push(formatCheckboxLines(parsed.subtasks));
+  }
 
   return `${headerLines.join('\n')}\n---\n${parsed.body}`;
 }
