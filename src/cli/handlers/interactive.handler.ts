@@ -1,9 +1,7 @@
 import * as readline from 'node:readline';
-
 import { CommanderError } from 'commander';
 import { Marked, type RendererObject } from 'marked';
 import TerminalRenderer from 'marked-terminal';
-
 import { TckError } from '../../domain/errors.js';
 import { createCliContext } from '../context.js';
 import { createProgram } from '../index.js';
@@ -130,7 +128,9 @@ export async function interactiveHandler(): Promise<void> {
 
       // ヘルプ
       if (line === '/help' || line === 'help') {
-        process.stdout.write(markedInstance.parse(t('interactiveHelp')) as string);
+        process.stdout.write(
+          markedInstance.parse(t('interactiveHelp')) as string
+        );
         rl.prompt();
         return;
       }

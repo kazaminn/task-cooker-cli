@@ -1,5 +1,4 @@
 import type { Command } from 'commander';
-
 import { interactiveHandler } from '../handlers/interactive.handler.js';
 
 export function registerInteractiveCommand(program: Command): void {

@@ -1,10 +1,10 @@
 import { Command } from 'commander';
 import { registerConfigCommand } from './commands/config.command.js';
-import { registerInteractiveCommand } from './commands/interactive.command.js';
 import { registerCreateCommand } from './commands/create.command.js';
 import { registerDeleteCommand } from './commands/delete.command.js';
 import { registerEditCommand } from './commands/edit.command.js';
 import { registerInitCommand } from './commands/init.command.js';
+import { registerInteractiveCommand } from './commands/interactive.command.js';
 import { registerListCommand } from './commands/list.command.js';
 import { registerLogCommand } from './commands/log.command.js';
 import { registerMixCommand } from './commands/mix.command.js';
