@@ -117,7 +117,7 @@ describe.sequential('Phase5 CLI integration', () => {
 
     const index = JSON.parse(
       await readFile(path.join(workspaceDir, '.tck', 'index.json'), 'utf-8')
-    );
+    ) as { tasks: unknown[] };
     expect(index.tasks).toEqual([
       {
         id: 1,

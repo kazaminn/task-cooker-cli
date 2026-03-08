@@ -22,7 +22,7 @@ describe('DefaultActivityService', () => {
         projectId: 'project-1',
         taskId: 1,
         text: 'created',
-        time: expect.any(String),
+        time: expect.any(String) as unknown,
       })
     );
   });

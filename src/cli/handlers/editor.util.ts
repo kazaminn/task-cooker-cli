@@ -15,10 +15,16 @@ export function runEditor(
   editorExitedAbnormallyMessage: string
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    const child = spawn(editor, [filePath], {
-      stdio: 'inherit',
-      shell: true,
-    });
+    // Parse shell-style args (handles quoted paths like `node "/path/to script"`)
+    const parts: string[] = [];
+    const tokenRe = /"([^"]+)"|'([^']+)'|(\S+)/g;
+    let m: RegExpExecArray | null;
+    while ((m = tokenRe.exec(editor.trim())) !== null) {
+      parts.push(m[1] ?? m[2] ?? m[3]);
+    }
+    const cmd = parts[0];
+    const args = [...parts.slice(1), filePath];
+    const child = spawn(cmd, args, { stdio: 'inherit' });
 
     child.on('error', reject);
     child.on('exit', (code) => {

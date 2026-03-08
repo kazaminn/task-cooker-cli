@@ -19,7 +19,7 @@
     "lint": "eslint src/",
     "lint:related": "node scripts/lint-related.mjs",
     "lint:fix": "eslint src/ --fix",
-    "lint:strict": "eslint src/ --fix --no-warn-ignored",
+    "lint:strict": "eslint . --fix --no-warn-ignored",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "tsc --noEmit",
