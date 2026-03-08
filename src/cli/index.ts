@@ -1,5 +1,6 @@
 import { Command } from 'commander';
 import { registerConfigCommand } from './commands/config.command.js';
+import { registerInteractiveCommand } from './commands/interactive.command.js';
 import { registerCreateCommand } from './commands/create.command.js';
 import { registerDeleteCommand } from './commands/delete.command.js';
 import { registerEditCommand } from './commands/edit.command.js';
@@ -37,6 +38,7 @@ export function createProgram(): Command {
   registerProjectCommand(program);
   registerMixCommand(program);
   registerRebuildCommand(program);
+  registerInteractiveCommand(program);
 
   return program;
 }
