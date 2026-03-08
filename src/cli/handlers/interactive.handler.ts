@@ -10,24 +10,63 @@ import { createProgram } from '../index.js';
 import { getTranslator } from './shared.js';
 
 /**
- * TerminalRenderer の prototype メソッドのみを抽出して marked に渡す。
- * コンストラクタが設定するインスタンスプロパティ（`o`, `tab` 等）は
- * marked v15 の renderer バリデーションを通過できないため除外する。
+ * marked v15 + marked-terminal v7 を組み合わせるためのアダプター。
+ *
+ * 問題:
+ *   - marked.use() は renderer の "own+inherited enumerable" キーを検証する。
+ *     TerminalRenderer コンストラクタが設定する `this.o`, `this.tab` 等は
+ *     marked の _Renderer に存在しないためバリデーションエラーになる。
+ *   - marked-terminal v7 は marked v15 の Token オブジェクト API を認識しており、
+ *     `this.parser.parseInline(text.tokens)` を呼ぶ。このとき `this` は
+ *     marked 内部の `_Renderer` インスタンスでなければならない。
+ *
+ * 解法:
+ *   1. rendererObj にプロトタイプメソッドのみ（bind なし）を列挙可能プロパティとして追加。
+ *      → for...in による検証はプロトタイプメソッドのみに当たる。
+ *   2. marked.use() 後、内部の _Renderer インスタンス (`instance.defaults.renderer`) に
+ *      TerminalRenderer のインスタンスプロパティ (`o`, `tab`, `transform` 等) を
+ *      非列挙プロパティとしてコピーする。
+ *      → レンダラーメソッド実行時の `this` は `_Renderer` インスタンスとなり、
+ *         `this.parser` (marked が設定) も `this.o` (コピー済み) も両方参照できる。
  */
 function createTerminalMarked(): Marked {
-  const renderer = new TerminalRenderer();
+  const termRenderer = new TerminalRenderer();
   const rendererObj: Record<string, unknown> = {};
 
-  for (const key of Object.getOwnPropertyNames(Object.getPrototypeOf(renderer))) {
+  // prototype メソッドのみ（constructor, textLength を除く）を列挙可能として追加
+  for (const key of Object.getOwnPropertyNames(
+    Object.getPrototypeOf(termRenderer)
+  )) {
     if (key === 'constructor' || key === 'textLength') continue;
-    const fn = (renderer as unknown as Record<string, unknown>)[key];
+    const fn = (termRenderer as unknown as Record<string, unknown>)[key];
     if (typeof fn === 'function') {
-      rendererObj[key] = (fn as (...args: unknown[]) => unknown).bind(renderer);
+      rendererObj[key] = fn; // bind しない — `this` は marked の _Renderer になる
     }
   }
 
   const instance = new Marked();
   instance.use({ renderer: rendererObj as RendererObject });
+
+  // use() が生成した内部 _Renderer インスタンスに TerminalRenderer の
+  // インスタンスプロパティ (o, tab, tableSettings, emoji, unescape, transform) を注入する
+  const internalRenderer = instance.defaults.renderer as
+    | Record<string, unknown>
+    | undefined;
+  if (internalRenderer) {
+    for (const key of Object.keys(
+      termRenderer as unknown as Record<string, unknown>
+    )) {
+      if (!(key in internalRenderer)) {
+        Object.defineProperty(internalRenderer, key, {
+          value: (termRenderer as unknown as Record<string, unknown>)[key],
+          enumerable: false,
+          writable: true,
+          configurable: true,
+        });
+      }
+    }
+  }
+
   return instance;
 }
 
@@ -38,7 +77,10 @@ const SLASH_COMMANDS = [
   '/update',
   '/delete',
   '/edit',
-  '/status',
+  '/order',
+  '/prep',
+  '/cook',
+  '/serve',
   '/log',
   '/mix',
   '/project',
