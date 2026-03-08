@@ -34,7 +34,11 @@ type MessageKey =
   | 'activityMixDeleted'
   | 'activityProjectCreated'
   | 'activityProjectDeleted'
-  | 'activityTaskStatusChanged';
+  | 'activityTaskStatusChanged'
+  | 'interactiveWelcome'
+  | 'interactiveHelp'
+  | 'interactiveUnknown'
+  | 'interactiveExit';
 
 type MessageMap = Record<MessageKey, string>;
 type Locale = NonNullable<TckConfig['language']>;
@@ -80,6 +84,30 @@ const messages: Record<Locale, MessageMap> = {
     activityProjectCreated: 'プロジェクトを作成: {name}',
     activityProjectDeleted: 'プロジェクトを削除: {slug}',
     activityTaskStatusChanged: 'ステータス変更: {status}',
+    interactiveWelcome:
+      '# TaskCooker CLI\n\nインタラクティブモード起動中。`/help` でコマンド一覧、`/exit` または Ctrl+D で終了。',
+    interactiveHelp: [
+      '## 利用可能なコマンド',
+      '',
+      '| コマンド | 説明 |',
+      '|---|---|',
+      '| `/create [title]` | タスクを作成 |',
+      '| `/list` | タスク一覧を表示 |',
+      '| `/view <id>` | タスク詳細を表示 |',
+      '| `/update <id>` | タスクを更新 |',
+      '| `/delete <id> --force` | タスクを削除 |',
+      '| `/edit <id>` | エディタでタスクを編集 |',
+      '| `/cook <ids>` (order/prep/serve も可) | ステータスを変更 |',
+      '| `/log` | 操作履歴を表示 |',
+      '| `/mix` | ミックス操作 |',
+      '| `/project` | プロジェクト操作 |',
+      '| `/config` | 設定を表示・変更 |',
+      '| `/rebuild` | インデックスを再構築 |',
+      '| `/help` | このヘルプを表示 |',
+      '| `/exit` | 終了 |',
+    ].join('\n'),
+    interactiveUnknown: '不明なコマンド: {input}',
+    interactiveExit: 'インタラクティブモードを終了します。さようなら！',
   },
   en: {
     taskCreated: 'Task created: #{id} {title}',
@@ -120,6 +148,30 @@ const messages: Record<Locale, MessageMap> = {
     activityProjectCreated: 'Project created: {name}',
     activityProjectDeleted: 'Project deleted: {slug}',
     activityTaskStatusChanged: 'Status changed: {status}',
+    interactiveWelcome:
+      '# TaskCooker CLI\n\nInteractive mode started. Type `/help` for commands or `/exit` to quit.',
+    interactiveHelp: [
+      '## Available Commands',
+      '',
+      '| Command | Description |',
+      '|---|---|',
+      '| `/create [title]` | Create a task |',
+      '| `/list` | List tasks |',
+      '| `/view <id>` | View task details |',
+      '| `/update <id>` | Update a task |',
+      '| `/delete <id> --force` | Delete a task |',
+      '| `/edit <id>` | Edit task in editor |',
+      '| `/cook <ids>` (order/prep/serve too) | Change status |',
+      '| `/log` | Show activity log |',
+      '| `/mix` | Mix operations |',
+      '| `/project` | Project operations |',
+      '| `/config` | Show/change config |',
+      '| `/rebuild` | Rebuild index |',
+      '| `/help` | Show this help |',
+      '| `/exit` | Quit |',
+    ].join('\n'),
+    interactiveUnknown: 'Unknown command: {input}',
+    interactiveExit: 'Exiting interactive mode. Goodbye!',
   },
 };
 
