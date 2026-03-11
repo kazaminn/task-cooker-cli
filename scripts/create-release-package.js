@@ -1,6 +1,13 @@
-import { spawn } from 'node:child_process';
-import { cp, mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import {
+  cp,
+  mkdir,
+  readdir,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from 'node:fs/promises';
+import { dirname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -76,39 +83,167 @@ function createSampleProjectPackageJson() {
   };
 }
 
-function runCommand(command, args) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, args, {
-      stdio: 'inherit',
-      shell: false,
-    });
+function toPosixPath(filePath) {
+  return filePath.split(sep).join('/');
+}
 
-    child.on('error', reject);
-    child.on('exit', (code) => {
-      if (code === 0) {
-        resolve();
-        return;
+function createCrc32Table() {
+  const table = new Uint32Array(256);
+
+  for (let i = 0; i < 256; i += 1) {
+    let value = i;
+
+    for (let bit = 0; bit < 8; bit += 1) {
+      if ((value & 1) === 1) {
+        value = 0xedb88320 ^ (value >>> 1);
+      } else {
+        value >>>= 1;
       }
+    }
 
-      reject(new Error(`${command} exited with code ${code ?? -1}`));
+    table[i] = value >>> 0;
+  }
+
+  return table;
+}
+
+const CRC32_TABLE = createCrc32Table();
+
+function crc32(buffer) {
+  let value = 0xffffffff;
+
+  for (const byte of buffer) {
+    value = CRC32_TABLE[(value ^ byte) & 0xff] ^ (value >>> 8);
+  }
+
+  return (value ^ 0xffffffff) >>> 0;
+}
+
+function toDosDateTime(date) {
+  const year = Math.max(date.getFullYear(), 1980);
+  const dosTime =
+    ((date.getHours() & 0x1f) << 11) |
+    ((date.getMinutes() & 0x3f) << 5) |
+    Math.floor(date.getSeconds() / 2);
+  const dosDate =
+    (((year - 1980) & 0x7f) << 9) |
+    (((date.getMonth() + 1) & 0x0f) << 5) |
+    (date.getDate() & 0x1f);
+
+  return { dosDate, dosTime };
+}
+
+async function collectFiles(rootDir, currentDir = rootDir) {
+  const entries = await readdir(currentDir, { withFileTypes: true });
+  const files = [];
+
+  for (const entry of entries) {
+    const absolutePath = resolve(currentDir, entry.name);
+
+    if (entry.isDirectory()) {
+      files.push(...(await collectFiles(rootDir, absolutePath)));
+      continue;
+    }
+
+    if (!entry.isFile()) {
+      continue;
+    }
+
+    files.push({
+      absolutePath,
+      relativePath: toPosixPath(relative(rootDir, absolutePath)),
     });
-  });
+  }
+
+  return files.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+}
+
+function buildZipEntry(fileName, fileData, modifiedAt, offset) {
+  const fileNameBuffer = Buffer.from(fileName, 'utf8');
+  const { dosDate, dosTime } = toDosDateTime(modifiedAt);
+  const checksum = crc32(fileData);
+
+  const localHeader = Buffer.alloc(30);
+  localHeader.writeUInt32LE(0x04034b50, 0);
+  localHeader.writeUInt16LE(20, 4);
+  localHeader.writeUInt16LE(0x0800, 6);
+  localHeader.writeUInt16LE(0, 8);
+  localHeader.writeUInt16LE(dosTime, 10);
+  localHeader.writeUInt16LE(dosDate, 12);
+  localHeader.writeUInt32LE(checksum, 14);
+  localHeader.writeUInt32LE(fileData.length, 18);
+  localHeader.writeUInt32LE(fileData.length, 22);
+  localHeader.writeUInt16LE(fileNameBuffer.length, 26);
+  localHeader.writeUInt16LE(0, 28);
+
+  const centralHeader = Buffer.alloc(46);
+  centralHeader.writeUInt32LE(0x02014b50, 0);
+  centralHeader.writeUInt16LE(20, 4);
+  centralHeader.writeUInt16LE(20, 6);
+  centralHeader.writeUInt16LE(0x0800, 8);
+  centralHeader.writeUInt16LE(0, 10);
+  centralHeader.writeUInt16LE(dosTime, 12);
+  centralHeader.writeUInt16LE(dosDate, 14);
+  centralHeader.writeUInt32LE(checksum, 16);
+  centralHeader.writeUInt32LE(fileData.length, 20);
+  centralHeader.writeUInt32LE(fileData.length, 24);
+  centralHeader.writeUInt16LE(fileNameBuffer.length, 28);
+  centralHeader.writeUInt16LE(0, 30);
+  centralHeader.writeUInt16LE(0, 32);
+  centralHeader.writeUInt16LE(0, 34);
+  centralHeader.writeUInt16LE(0, 36);
+  centralHeader.writeUInt32LE(0, 38);
+  centralHeader.writeUInt32LE(offset, 42);
+
+  return {
+    localRecord: Buffer.concat([localHeader, fileNameBuffer, fileData]),
+    centralRecord: Buffer.concat([centralHeader, fileNameBuffer]),
+  };
 }
 
 async function createZipArchive(sourceDir, targetZipPath) {
-  if (process.platform !== 'win32') {
-    console.warn(
-      'Skipping zip creation because automatic zip packaging is only configured for Windows.'
+  const files = await collectFiles(sourceDir);
+  const localRecords = [];
+  const centralRecords = [];
+  let offset = 0;
+
+  for (const file of files) {
+    const [fileData, fileStat] = await Promise.all([
+      readFile(file.absolutePath),
+      stat(file.absolutePath),
+    ]);
+    const { localRecord, centralRecord } = buildZipEntry(
+      file.relativePath,
+      fileData,
+      fileStat.mtime,
+      offset
     );
-    return;
+
+    localRecords.push(localRecord);
+    centralRecords.push(centralRecord);
+    offset += localRecord.length;
   }
 
+  const centralDirectory = Buffer.concat(centralRecords);
+  const endOfCentralDirectory = Buffer.alloc(22);
+  endOfCentralDirectory.writeUInt32LE(0x06054b50, 0);
+  endOfCentralDirectory.writeUInt16LE(0, 4);
+  endOfCentralDirectory.writeUInt16LE(0, 6);
+  endOfCentralDirectory.writeUInt16LE(files.length, 8);
+  endOfCentralDirectory.writeUInt16LE(files.length, 10);
+  endOfCentralDirectory.writeUInt32LE(centralDirectory.length, 12);
+  endOfCentralDirectory.writeUInt32LE(offset, 16);
+  endOfCentralDirectory.writeUInt16LE(0, 20);
+
   await rm(targetZipPath, { force: true });
-  await runCommand('powershell', [
-    '-NoProfile',
-    '-Command',
-    `Compress-Archive -Path "${sourceDir}\\*" -DestinationPath "${targetZipPath}"`,
-  ]);
+  await writeFile(
+    targetZipPath,
+    Buffer.concat([
+      ...localRecords,
+      centralDirectory,
+      endOfCentralDirectory,
+    ])
+  );
 }
 
 function createReleaseReadme(pkg) {
