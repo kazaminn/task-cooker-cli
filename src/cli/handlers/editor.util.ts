@@ -9,22 +9,58 @@ export function resolveEditor(config: TckConfig | null): string {
   return process.env.EDITOR ?? config?.editor ?? 'vi';
 }
 
+function parseEditorCommand(editor: string): string[] {
+  const parts: string[] = [];
+  const tokenRe = /"([^"]+)"|'([^']+)'|(\S+)/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = tokenRe.exec(editor.trim())) !== null) {
+    parts.push(match[1] ?? match[2] ?? match[3]);
+  }
+
+  return parts;
+}
+
+function isCodeEditorCommand(command: string): boolean {
+  const binary = path.basename(command).toLowerCase();
+
+  return ['code', 'code-insiders', 'codium'].includes(binary);
+}
+
+function hasWaitFlag(args: string[]): boolean {
+  return args.includes('--wait') || args.includes('-w');
+}
+
+export function buildEditorCommand(
+  editor: string,
+  filePath: string
+): { command: string; args: string[] } {
+  const parts = parseEditorCommand(editor);
+  const command = parts[0];
+
+  if (!command) {
+    throw new ValidationError('EDITOR が設定されていません。');
+  }
+
+  const args = parts.slice(1);
+
+  if (isCodeEditorCommand(command) && !hasWaitFlag(args)) {
+    args.push('--wait');
+  }
+
+  args.push(filePath);
+
+  return { command, args };
+}
+
 export function runEditor(
   editor: string,
   filePath: string,
   editorExitedAbnormallyMessage: string
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    // Parse shell-style args (handles quoted paths like `node "/path/to script"`)
-    const parts: string[] = [];
-    const tokenRe = /"([^"]+)"|'([^']+)'|(\S+)/g;
-    let m: RegExpExecArray | null;
-    while ((m = tokenRe.exec(editor.trim())) !== null) {
-      parts.push(m[1] ?? m[2] ?? m[3]);
-    }
-    const cmd = parts[0];
-    const args = [...parts.slice(1), filePath];
-    const child = spawn(cmd, args, { stdio: 'inherit' });
+    const { command, args } = buildEditorCommand(editor, filePath);
+    const child = spawn(command, args, { stdio: 'inherit' });
 
     child.on('error', reject);
     child.on('exit', (code) => {

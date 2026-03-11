@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -221,5 +221,47 @@ describe.sequential('Phase5 CLI integration', () => {
     );
     expect(mixFile).toContain('Title: Drafted mix');
     expect(mixFile).toContain('First comment from editor.');
+  });
+
+  it('supports code editor defaults for draft creation', async () => {
+    await runCli(['init']);
+    await runCli(['project', 'create', 'CLI Project', '--slug', 'project-1']);
+
+    const fakeCodeScript = path.join(workspaceDir, 'code');
+    await writeFile(
+      fakeCodeScript,
+      [
+        '#!/usr/bin/env node',
+        "import { writeFileSync } from 'node:fs';",
+        'const args = process.argv.slice(2);',
+        "const filePath = args.at(-1);",
+        "if (!args.includes('--wait')) {",
+        "  console.error('missing --wait');",
+        '  process.exit(2);',
+        '}',
+        "writeFileSync(filePath, '# Drafted via code\\nStatus: prep\\nPriority: high\\n\\nCreated from code.\\n', 'utf8');",
+      ].join('\n'),
+      'utf8'
+    );
+    await chmod(fakeCodeScript, 0o755);
+
+    process.env.EDITOR = 'code';
+    const originalPath = process.env.PATH ?? '';
+    process.env.PATH = `${workspaceDir}:${originalPath}`;
+
+    try {
+      const result = await runCli(['create', 'new']);
+      expect(result.stderr).toEqual([]);
+      expect(result.stdout[0]).toContain('#1');
+    } finally {
+      process.env.PATH = originalPath;
+    }
+
+    const taskFile = await readFile(
+      path.join(workspaceDir, 'projects', 'project-1', 'task-1.md'),
+      'utf8'
+    );
+    expect(taskFile).toContain('Title: Drafted via code');
+    expect(taskFile).toContain('Created from code.');
   });
 });
