@@ -227,7 +227,7 @@ tck mix delete <id> --force
 ## ソースオブトゥルース
 
 ```
-projects/*/task-*.md, mix-*.md  →  実データ（source of truth）
+projects/*/task-*.md, t*.md, mix-*.md  →  実データ（source of truth）
 .tck/index.json                 →  機械用インデックス（CLIが生成・更新）
 .tck/activity.log               →  操作履歴
 master.todo                     →  人間用ダッシュボード（手動管理）

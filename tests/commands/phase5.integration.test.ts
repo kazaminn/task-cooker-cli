@@ -1,4 +1,11 @@
-import { chmod, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import {
+  chmod,
+  mkdtemp,
+  readFile,
+  rename,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -234,7 +241,7 @@ describe.sequential('Phase5 CLI integration', () => {
         '#!/usr/bin/env node',
         "import { writeFileSync } from 'node:fs';",
         'const args = process.argv.slice(2);',
-        "const filePath = args.at(-1);",
+        'const filePath = args.at(-1);',
         "if (!args.includes('--wait')) {",
         "  console.error('missing --wait');",
         '  process.exit(2);',
@@ -263,5 +270,51 @@ describe.sequential('Phase5 CLI integration', () => {
     );
     expect(taskFile).toContain('Title: Drafted via code');
     expect(taskFile).toContain('Created from code.');
+  });
+
+  it('keeps working after a task file is renamed with a readable suffix', async () => {
+    await runCli(['init']);
+    await runCli(['project', 'create', 'CLI Project', '--slug', 'project-1']);
+    await runCli(['create', 'Initial task', '--body', 'first body']);
+
+    const originalTaskPath = path.join(
+      workspaceDir,
+      'projects',
+      'project-1',
+      'task-1.md'
+    );
+    const renamedTaskPath = path.join(
+      workspaceDir,
+      'projects',
+      'project-1',
+      't1-hello-world.md'
+    );
+    await rename(originalTaskPath, renamedTaskPath);
+
+    const updateResult = await runCli([
+      'update',
+      '1',
+      '--title',
+      'Updated task',
+      '--body',
+      'updated body',
+    ]);
+    expect(updateResult.stderr).toEqual([]);
+
+    const listResult = await runCli(['list', '--json']);
+    expect(JSON.parse(listResult.stdout[0])).toEqual([
+      {
+        id: 1,
+        project: 'project-1',
+        title: 'Updated task',
+        status: 'order',
+        priority: 'medium',
+        path: 'projects/project-1/t1-hello-world.md',
+      },
+    ]);
+
+    const taskFile = await readFile(renamedTaskPath, 'utf-8');
+    expect(taskFile).toContain('Title: Updated task');
+    expect(taskFile).toContain('updated body');
   });
 });

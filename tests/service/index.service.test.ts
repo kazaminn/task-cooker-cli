@@ -26,7 +26,13 @@ describe('DefaultIndexService', () => {
     const service = new DefaultIndexService(
       indexRepository,
       { findBySlug: vi.fn(), findAll: vi.fn(), save: vi.fn(), remove: vi.fn() },
-      { findById: vi.fn(), findAll: vi.fn(), save: vi.fn(), remove: vi.fn() },
+      {
+        findById: vi.fn(),
+        findAll: vi.fn(),
+        save: vi.fn(),
+        remove: vi.fn(),
+        resolvePath: vi.fn().mockResolvedValue('projects/project-1/task-1.md'),
+      },
       { findById: vi.fn(), findAll: vi.fn(), save: vi.fn(), remove: vi.fn() }
     );
 
@@ -83,7 +89,13 @@ describe('DefaultIndexService', () => {
     const service = new DefaultIndexService(
       indexRepository,
       { findBySlug: vi.fn(), findAll: vi.fn(), save: vi.fn(), remove: vi.fn() },
-      { findById: vi.fn(), findAll: vi.fn(), save: vi.fn(), remove: vi.fn() },
+      {
+        findById: vi.fn(),
+        findAll: vi.fn(),
+        save: vi.fn(),
+        remove: vi.fn(),
+        resolvePath: vi.fn(),
+      },
       { findById: vi.fn(), findAll: vi.fn(), save: vi.fn(), remove: vi.fn() }
     );
 
@@ -135,6 +147,7 @@ describe('DefaultIndexService', () => {
         .mockResolvedValueOnce([]),
       save: vi.fn(),
       remove: vi.fn(),
+      resolvePath: vi.fn(),
     };
     const mixRepository = {
       findById: vi.fn(),

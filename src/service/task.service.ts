@@ -136,8 +136,10 @@ export class DefaultTaskService implements TaskService {
     };
 
     await this.taskRepository.save(task);
-    await this.indexService.updateTask(task);
-    return task;
+    const saved = await this.taskRepository.findById(input.projectSlug, id);
+    const created = saved ?? task;
+    await this.indexService.updateTask(created);
+    return created;
   }
 
   async update(ids: number[], input: UpdateTaskInput): Promise<Task[]> {

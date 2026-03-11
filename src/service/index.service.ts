@@ -25,7 +25,7 @@ function toTaskIndexEntry(task: Task): TaskIndexEntry {
     status: task.status,
     priority: task.priority,
     due: task.dueDate,
-    path: `projects/${task.projectSlug}/task-${task.id}.md`,
+    path: task.path ?? `projects/${task.projectSlug}/task-${task.id}.md`,
   };
 }
 
@@ -74,12 +74,16 @@ export class DefaultIndexService implements IndexService {
   }
 
   async updateTask(task: Task): Promise<void> {
+    const resolvedPath =
+      task.path ??
+      (await this.taskRepository.resolvePath(task.projectSlug, task.id)) ??
+      undefined;
     const index = await this.indexRepository.load();
     const nextTasks = index.tasks
       .filter(
         (entry) => !(entry.project === task.projectSlug && entry.id === task.id)
       )
-      .concat(toTaskIndexEntry(task))
+      .concat(toTaskIndexEntry({ ...task, path: resolvedPath }))
       .sort(sortTaskEntries);
 
     await this.indexRepository.save({

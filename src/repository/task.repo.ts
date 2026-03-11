@@ -3,13 +3,19 @@ import path from 'node:path';
 import type { Task, TaskPriority, TaskStatus } from '../domain/types.js';
 import { formatIssueFile, parseIssueFile } from '../parser/issue-file.js';
 import { atomicWriteFile } from '../util/fs.js';
-import { getProjectDir, getTaskFile } from '../util/path.js';
+import {
+  getProjectDir,
+  isTaskFileName,
+  resolveTaskFile,
+  toProjectRelativePath,
+} from '../util/path.js';
 
 export interface TaskRepository {
   findById(projectSlug: string, id: number): Promise<Task | null>;
   findAll(projectSlug: string): Promise<Task[]>;
   save(task: Task): Promise<void>;
   remove(projectSlug: string, id: number): Promise<void>;
+  resolvePath(projectSlug: string, id: number): Promise<string | null>;
 }
 
 function parseCsvNumbers(value?: string): number[] {
@@ -23,13 +29,14 @@ function parseCsvNumbers(value?: string): number[] {
     .filter((n) => Number.isFinite(n));
 }
 
-function toTask(projectSlug: string, raw: string): Task {
+function toTask(projectSlug: string, raw: string, filePath?: string): Task {
   const parsed = parseIssueFile(raw);
   const id = Number(parsed.metadata.Id ?? '0');
 
   return {
     id,
     projectSlug,
+    path: filePath,
     title: parsed.metadata.Title ?? '',
     description: parsed.body.replace(/\n$/, '') || undefined,
     status: (parsed.metadata.Status ?? 'order') as TaskStatus,
@@ -72,11 +79,15 @@ export class FileTaskRepository implements TaskRepository {
   }
 
   async findById(projectSlug: string, id: number): Promise<Task | null> {
-    const filePath = getTaskFile(projectSlug, id, this.startDir);
+    const filePath = await resolveTaskFile(projectSlug, id, this.startDir);
 
     try {
       const raw = await fs.readFile(filePath, 'utf-8');
-      return toTask(projectSlug, raw);
+      return toTask(
+        projectSlug,
+        raw,
+        toProjectRelativePath(filePath, this.startDir)
+      );
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
         return null;
@@ -93,10 +104,15 @@ export class FileTaskRepository implements TaskRepository {
       const files = await fs.readdir(dir);
       const tasks = await Promise.all(
         files
-          .filter((name) => /^task-\d+\.md$/.test(name))
+          .filter((name) => isTaskFileName(name))
           .map(async (name) => {
-            const raw = await fs.readFile(path.join(dir, name), 'utf-8');
-            return toTask(projectSlug, raw);
+            const filePath = path.join(dir, name);
+            const raw = await fs.readFile(filePath, 'utf-8');
+            return toTask(
+              projectSlug,
+              raw,
+              toProjectRelativePath(filePath, this.startDir)
+            );
           })
       );
 
@@ -111,12 +127,31 @@ export class FileTaskRepository implements TaskRepository {
   }
 
   async save(task: Task): Promise<void> {
-    const filePath = getTaskFile(task.projectSlug, task.id, this.startDir);
+    const filePath = await resolveTaskFile(
+      task.projectSlug,
+      task.id,
+      this.startDir
+    );
     await atomicWriteFile(filePath, `${toIssueFile(task)}\n`);
   }
 
   async remove(projectSlug: string, id: number): Promise<void> {
-    const filePath = getTaskFile(projectSlug, id, this.startDir);
+    const filePath = await resolveTaskFile(projectSlug, id, this.startDir);
     await fs.rm(filePath, { force: true });
+  }
+
+  async resolvePath(projectSlug: string, id: number): Promise<string | null> {
+    const filePath = await resolveTaskFile(projectSlug, id, this.startDir);
+
+    try {
+      await fs.access(filePath);
+      return toProjectRelativePath(filePath, this.startDir);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return null;
+      }
+
+      throw error;
+    }
   }
 }

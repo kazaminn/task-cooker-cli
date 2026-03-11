@@ -86,7 +86,7 @@ task-cooker-cli/
       errors.ts               # カスタムエラークラス
       validator.ts            # 入力値バリデーション
     parser/
-      issue-file.ts           # task-*.md / mix-*.md の読み書き
+      issue-file.ts           # task-*.md / t*.md / mix-*.md の読み書き
       project-file.ts         # project.md の読み書き
       tag.ts                  # @tag / @tag(value) パーサー
       checkbox.ts             # [ ] / [x] パーサー

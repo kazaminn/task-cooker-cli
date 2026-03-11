@@ -13,6 +13,7 @@ export interface Subtask {
 export interface Task {
   id: number;
   projectSlug: string;
+  path?: string;
   title: string;
   description?: string;
   status: TaskStatus;
