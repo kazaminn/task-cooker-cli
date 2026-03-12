@@ -31,6 +31,13 @@ describe('FileMixRepository', () => {
     };
 
     await repo.save(mix);
-    await expect(repo.findById('project-1', 10)).resolves.toEqual(mix);
+    const found = await repo.findById('project-1', 10);
+    expect(found).toMatchObject({
+      id: 10,
+      projectSlug: 'project-1',
+      title: 'mix title',
+      status: 'open',
+      comments: [{ author: 'alice', body: 'hello' }],
+    });
   });
 });

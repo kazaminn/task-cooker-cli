@@ -4,9 +4,9 @@ import type { Task, TaskPriority, TaskStatus } from '../domain/types.js';
 import { formatIssueFile, parseIssueFile } from '../parser/issue-file.js';
 import { atomicWriteFile } from '../util/fs.js';
 import {
+  generateTaskFileName,
   getProjectDir,
   isTaskFileName,
-  resolveTaskFile,
   toProjectRelativePath,
 } from '../util/path.js';
 
@@ -18,51 +18,65 @@ export interface TaskRepository {
   resolvePath(projectSlug: string, id: number): Promise<string | null>;
 }
 
-function parseCsvNumbers(value?: string): number[] {
-  if (!value) {
-    return [];
-  }
+function toStr(v: unknown, fallback = ''): string {
+  if (v == null) return fallback;
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  return fallback;
+}
 
-  return value
-    .split(',')
-    .map((entry) => Number(entry.trim()))
-    .filter((n) => Number.isFinite(n));
+function yamlDateToString(v: unknown): string | undefined {
+  if (!v) return undefined;
+  if (v instanceof Date) return v.toISOString().replace('Z', '');
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number') return String(v);
+  return undefined;
 }
 
 function toTask(projectSlug: string, raw: string, filePath?: string): Task {
   const parsed = parseIssueFile(raw);
-  const id = Number(parsed.metadata.Id ?? '0');
+  const m = parsed.metadata;
+  const id = Number(m.id ?? 0);
+
+  const linkedRaw = m.linkedIssueIds;
+  const linkedIssueIds = Array.isArray(linkedRaw) ? linkedRaw.map(Number) : [];
 
   return {
     id,
     projectSlug,
     path: filePath,
-    title: parsed.metadata.Title ?? '',
-    description: parsed.body.replace(/\n$/, '') || undefined,
-    status: (parsed.metadata.Status ?? 'order') as TaskStatus,
-    priority: (parsed.metadata.Priority ?? 'medium') as TaskPriority,
-    dueDate: parsed.metadata.Due || undefined,
+    title: toStr(m.title),
+    description: parsed.body || undefined,
+    status: toStr(m.status, 'order') as TaskStatus,
+    priority: toStr(m.priority, 'medium') as TaskPriority,
+    dueDate: yamlDateToString(m.dueDate),
     subtasks: parsed.subtasks,
-    linkedIssueIds: parseCsvNumbers(parsed.metadata.Linked),
+    linkedIssueIds,
+    created: yamlDateToString(m.created),
+    updated: yamlDateToString(m.updated),
+    aliases: Array.isArray(m.aliases)
+      ? m.aliases.map((a) => toStr(a))
+      : undefined,
   };
 }
 
 function toIssueFile(task: Task): string {
-  const metadata: Record<string, string> = {
-    Id: String(task.id),
-    Project: task.projectSlug,
-    Title: task.title,
-    Status: task.status,
-    Priority: task.priority,
+  const metadata: Record<string, unknown> = {
+    id: task.id,
+    title: task.title,
+    status: task.status,
+    priority: task.priority,
   };
 
   if (task.dueDate) {
-    metadata.Due = task.dueDate;
+    metadata.dueDate = task.dueDate;
   }
 
-  if (task.linkedIssueIds.length > 0) {
-    metadata.Linked = task.linkedIssueIds.join(', ');
-  }
+  metadata.linkedIssueIds = task.linkedIssueIds;
+
+  if (task.created) metadata.created = task.created;
+  if (task.updated) metadata.updated = task.updated;
+  if (task.aliases) metadata.aliases = task.aliases;
 
   return formatIssueFile({
     metadata,
@@ -79,20 +93,28 @@ export class FileTaskRepository implements TaskRepository {
   }
 
   async findById(projectSlug: string, id: number): Promise<Task | null> {
-    const filePath = await resolveTaskFile(projectSlug, id, this.startDir);
+    const dir = getProjectDir(projectSlug, this.startDir);
 
     try {
-      const raw = await fs.readFile(filePath, 'utf-8');
-      return toTask(
-        projectSlug,
-        raw,
-        toProjectRelativePath(filePath, this.startDir)
-      );
+      const names = await fs.readdir(dir);
+      for (const name of names) {
+        if (!isTaskFileName(name)) continue;
+        const filePath = path.join(dir, name);
+        const raw = await fs.readFile(filePath, 'utf-8');
+        const parsed = parseIssueFile(raw);
+        if (Number(parsed.metadata.id) === id) {
+          return toTask(
+            projectSlug,
+            raw,
+            toProjectRelativePath(filePath, this.startDir)
+          );
+        }
+      }
+      return null;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
         return null;
       }
-
       throw error;
     }
   }
@@ -127,30 +149,63 @@ export class FileTaskRepository implements TaskRepository {
   }
 
   async save(task: Task): Promise<void> {
-    const filePath = await resolveTaskFile(
-      task.projectSlug,
-      task.id,
-      this.startDir
-    );
+    let filePath: string;
+
+    if (task.path) {
+      const root = (await import('../util/path.js')).getProjectRoot(
+        this.startDir
+      );
+      filePath = path.join(root, task.path);
+    } else {
+      const dir = getProjectDir(task.projectSlug, this.startDir);
+      await fs.mkdir(dir, { recursive: true });
+      filePath = path.join(dir, generateTaskFileName());
+    }
+
     await atomicWriteFile(filePath, `${toIssueFile(task)}\n`);
   }
 
   async remove(projectSlug: string, id: number): Promise<void> {
-    const filePath = await resolveTaskFile(projectSlug, id, this.startDir);
-    await fs.rm(filePath, { force: true });
+    const dir = getProjectDir(projectSlug, this.startDir);
+
+    try {
+      const names = await fs.readdir(dir);
+      for (const name of names) {
+        if (!isTaskFileName(name)) continue;
+        const filePath = path.join(dir, name);
+        const raw = await fs.readFile(filePath, 'utf-8');
+        const parsed = parseIssueFile(raw);
+        if (Number(parsed.metadata.id) === id) {
+          await fs.rm(filePath, { force: true });
+          return;
+        }
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw error;
+      }
+    }
   }
 
   async resolvePath(projectSlug: string, id: number): Promise<string | null> {
-    const filePath = await resolveTaskFile(projectSlug, id, this.startDir);
+    const dir = getProjectDir(projectSlug, this.startDir);
 
     try {
-      await fs.access(filePath);
-      return toProjectRelativePath(filePath, this.startDir);
+      const names = await fs.readdir(dir);
+      for (const name of names) {
+        if (!isTaskFileName(name)) continue;
+        const filePath = path.join(dir, name);
+        const raw = await fs.readFile(filePath, 'utf-8');
+        const parsed = parseIssueFile(raw);
+        if (Number(parsed.metadata.id) === id) {
+          return toProjectRelativePath(filePath, this.startDir);
+        }
+      }
+      return null;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
         return null;
       }
-
       throw error;
     }
   }

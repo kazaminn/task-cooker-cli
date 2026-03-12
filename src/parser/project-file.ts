@@ -1,34 +1,22 @@
+import matter from 'gray-matter';
+
 export interface ParsedProjectFile {
-  metadata: Record<string, string>;
+  metadata: Record<string, unknown>;
   body: string;
 }
 
-const SEPARATOR = '\n---\n';
-
 export function parseProjectFile(input: string): ParsedProjectFile {
-  const sepIndex = input.indexOf(SEPARATOR);
-  const headerPart = sepIndex === -1 ? input : input.slice(0, sepIndex);
-  const body = sepIndex === -1 ? '' : input.slice(sepIndex + SEPARATOR.length);
+  const { data, content } = matter(input);
 
-  const metadata: Record<string, string> = {};
-  for (const line of headerPart.split('\n')) {
-    const index = line.indexOf(':');
-    if (index === -1) {
-      continue;
-    }
-
-    const key = line.slice(0, index).trim();
-    const value = line.slice(index + 1).trim();
-    metadata[key] = value;
-  }
-
-  return { metadata, body };
+  return {
+    metadata: data as Record<string, unknown>,
+    body: content.replace(/^\n+/, '').trimEnd(),
+  };
 }
 
 export function formatProjectFile(parsed: ParsedProjectFile): string {
-  const headerLines = Object.entries(parsed.metadata).map(
-    ([key, value]) => `${key}: ${value}`
+  return matter.stringify(
+    '\n' + (parsed.body ? parsed.body : ''),
+    parsed.metadata
   );
-
-  return `${headerLines.join('\n')}\n---\n${parsed.body}`;
 }

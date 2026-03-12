@@ -1,5 +1,5 @@
 import { promises as fs } from 'node:fs';
-import type { Project } from '../domain/types.js';
+import type { Project, ProjectStatus } from '../domain/types.js';
 import { formatProjectFile, parseProjectFile } from '../parser/project-file.js';
 import { atomicWriteFile } from '../util/fs.js';
 import { getProjectFile, getProjectsDir } from '../util/path.js';
@@ -11,22 +11,53 @@ export interface ProjectRepository {
   remove(slug: string): Promise<void>;
 }
 
+function toStr(v: unknown, fallback = ''): string {
+  if (v == null) return fallback;
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  return fallback;
+}
+
+function yamlDateToString(v: unknown): string | undefined {
+  if (!v) return undefined;
+  if (v instanceof Date) return v.toISOString().replace('Z', '');
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number') return String(v);
+  return undefined;
+}
+
 function toProject(slug: string, raw: string): Project {
   const parsed = parseProjectFile(raw);
+  const m = parsed.metadata;
 
   return {
-    slug,
-    name: parsed.metadata.Name ?? slug,
-    overview: parsed.body.replace(/\n$/, ''),
+    slug: toStr(m.slug, slug),
+    name: toStr(m.name, slug),
+    status: (m.status ? toStr(m.status) : undefined) as
+      | ProjectStatus
+      | undefined,
+    overview: parsed.body,
+    created: yamlDateToString(m.created),
+    updated: yamlDateToString(m.updated),
+    aliases: Array.isArray(m.aliases)
+      ? m.aliases.map((a) => toStr(a))
+      : undefined,
   };
 }
 
 function toProjectFile(project: Project): string {
+  const metadata: Record<string, unknown> = {
+    slug: project.slug,
+    name: project.name,
+  };
+
+  if (project.status) metadata.status = project.status;
+  if (project.created) metadata.created = project.created;
+  if (project.updated) metadata.updated = project.updated;
+  metadata.aliases = project.aliases ?? [];
+
   return formatProjectFile({
-    metadata: {
-      Slug: project.slug,
-      Name: project.name,
-    },
+    metadata,
     body: project.overview,
   });
 }

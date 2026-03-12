@@ -1,4 +1,4 @@
-import { existsSync, promises as fs } from 'node:fs';
+import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { ConfigError } from '../domain/errors.js';
 
@@ -69,67 +69,21 @@ export function getProjectDir(slug: string, startDir?: string): string {
   return path.join(getProjectsDir(startDir), slug);
 }
 
-export function getTaskFile(
-  slug: string,
-  id: number,
-  startDir?: string
-): string {
-  return path.join(getProjectDir(slug, startDir), `task-${id}.md`);
-}
-
-const TASK_FILE_PATTERNS = [/^task-(\d+)(?:-.+)?\.md$/, /^t(\d+)(?:-.+)?\.md$/];
+const MIX_FILE_PATTERN = /^mix-\d+\.md$/;
 
 export function isTaskFileName(name: string): boolean {
-  return getTaskIdFromFileName(name) !== null;
+  return (
+    name.endsWith('.md') &&
+    name !== 'project.md' &&
+    !MIX_FILE_PATTERN.test(name)
+  );
 }
 
-export function getTaskIdFromFileName(name: string): number | null {
-  for (const pattern of TASK_FILE_PATTERNS) {
-    const match = name.match(pattern);
-    if (match) {
-      return Number(match[1]);
-    }
-  }
-
-  return null;
-}
-
-export async function resolveTaskFile(
-  slug: string,
-  id: number,
-  startDir?: string
-): Promise<string> {
-  const projectDir = getProjectDir(slug, startDir);
-  const canonicalPath = getTaskFile(slug, id, startDir);
-
-  try {
-    const names = await fs.readdir(projectDir);
-    const matches = names
-      .filter((name) => getTaskIdFromFileName(name) === id)
-      .sort((a, b) => {
-        const canonicalName = `task-${id}.md`;
-
-        if (a === canonicalName) {
-          return -1;
-        }
-
-        if (b === canonicalName) {
-          return 1;
-        }
-
-        return a.localeCompare(b);
-      });
-
-    if (matches.length > 0) {
-      return path.join(projectDir, matches[0]);
-    }
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-      throw error;
-    }
-  }
-
-  return canonicalPath;
+export function generateTaskFileName(): string {
+  const iso = new Date().toISOString(); // e.g. 2026-03-12T10:30:00.123Z
+  const withMs = iso.slice(0, 23); // 2026-03-12T10:30:00.123
+  const safe = withMs.replace(/:/g, '-').replace('.', '-'); // 2026-03-12T10-30-00-123
+  return `${safe}.md`;
 }
 
 export function toProjectRelativePath(

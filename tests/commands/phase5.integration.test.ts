@@ -2,6 +2,7 @@ import {
   chmod,
   mkdtemp,
   readFile,
+  readdir,
   rename,
   rm,
   writeFile,
@@ -35,6 +36,20 @@ async function runCli(args: string[]) {
   }
 
   return { stdout, stderr };
+}
+
+/** Returns the first task .md file in the given project directory */
+async function findTaskFile(
+  workspaceDir: string,
+  projectSlug: string
+): Promise<string> {
+  const projectDir = path.join(workspaceDir, 'projects', projectSlug);
+  const files = await readdir(projectDir);
+  const taskFile = files.find(
+    (f) => f.endsWith('.md') && f !== 'project.md' && !/^mix-\d+\.md$/.test(f)
+  );
+  if (!taskFile) throw new Error('No task file found in ' + projectDir);
+  return path.join(projectDir, taskFile);
 }
 
 describe.sequential('Phase5 CLI integration', () => {
@@ -85,16 +100,23 @@ describe.sequential('Phase5 CLI integration', () => {
 
     const listResult = await runCli(['list', '--json']);
     expect(listResult.stderr).toEqual([]);
-    expect(JSON.parse(listResult.stdout[0])).toEqual([
-      {
-        id: 1,
-        project: 'project-1',
-        title: 'Initial task',
-        status: 'order',
-        priority: 'medium',
-        path: 'projects/project-1/task-1.md',
-      },
-    ]);
+    const listEntries = JSON.parse(listResult.stdout[0]) as {
+      id: number;
+      project: string;
+      title: string;
+      status: string;
+      priority: string;
+      path: string;
+    }[];
+    expect(listEntries).toHaveLength(1);
+    expect(listEntries[0]).toMatchObject({
+      id: 1,
+      project: 'project-1',
+      title: 'Initial task',
+      status: 'order',
+      priority: 'medium',
+    });
+    expect(listEntries[0].path).toMatch(/^projects\/project-1\/.+\.md$/);
 
     const updateResult = await runCli([
       'update',
@@ -113,28 +135,34 @@ describe.sequential('Phase5 CLI integration', () => {
     expect(serveResult.stderr).toEqual([]);
     expect(serveResult.stdout[0]).toContain('#1');
 
-    const taskFile = await readFile(
-      path.join(workspaceDir, 'projects', 'project-1', 'task-1.md'),
-      'utf-8'
-    );
-    expect(taskFile).toContain('Title: Updated task');
-    expect(taskFile).toContain('Status: serve');
-    expect(taskFile).toContain('Priority: high');
+    const taskFilePath = await findTaskFile(workspaceDir, 'project-1');
+    const taskFile = await readFile(taskFilePath, 'utf-8');
+    expect(taskFile).toContain('title: Updated task');
+    expect(taskFile).toContain('status: serve');
+    expect(taskFile).toContain('priority: high');
     expect(taskFile).toContain('updated body');
 
     const index = JSON.parse(
       await readFile(path.join(workspaceDir, '.tck', 'index.json'), 'utf-8')
-    ) as { tasks: unknown[] };
-    expect(index.tasks).toEqual([
-      {
-        id: 1,
-        project: 'project-1',
-        title: 'Updated task',
-        status: 'serve',
-        priority: 'high',
-        path: 'projects/project-1/task-1.md',
-      },
-    ]);
+    ) as {
+      tasks: {
+        id: number;
+        project: string;
+        title: string;
+        status: string;
+        priority: string;
+        path: string;
+      }[];
+    };
+    expect(index.tasks).toHaveLength(1);
+    expect(index.tasks[0]).toMatchObject({
+      id: 1,
+      project: 'project-1',
+      title: 'Updated task',
+      status: 'serve',
+      priority: 'high',
+    });
+    expect(index.tasks[0].path).toMatch(/^projects\/project-1\/.+\.md$/);
 
     const logResult = await runCli(['log', '--json']);
     expect(logResult.stderr).toEqual([]);
@@ -197,13 +225,11 @@ describe.sequential('Phase5 CLI integration', () => {
     expect(createTaskResult.stderr).toEqual([]);
     expect(createTaskResult.stdout[0]).toContain('#1');
 
-    const taskFile = await readFile(
-      path.join(workspaceDir, 'projects', 'project-1', 'task-1.md'),
-      'utf8'
-    );
-    expect(taskFile).toContain('Title: Drafted task');
-    expect(taskFile).toContain('Status: prep');
-    expect(taskFile).toContain('Priority: urgent');
+    const taskFilePath = await findTaskFile(workspaceDir, 'project-1');
+    const taskFile = await readFile(taskFilePath, 'utf8');
+    expect(taskFile).toContain('title: Drafted task');
+    expect(taskFile).toContain('status: prep');
+    expect(taskFile).toContain('priority: urgent');
     expect(taskFile).toContain('Task body from editor.');
 
     const mixEditorScript = path.join(workspaceDir, 'mix-editor.mjs');
@@ -226,7 +252,7 @@ describe.sequential('Phase5 CLI integration', () => {
       path.join(workspaceDir, 'projects', 'project-1', 'mix-1.md'),
       'utf8'
     );
-    expect(mixFile).toContain('Title: Drafted mix');
+    expect(mixFile).toContain('title: Drafted mix');
     expect(mixFile).toContain('First comment from editor.');
   });
 
@@ -264,11 +290,9 @@ describe.sequential('Phase5 CLI integration', () => {
       process.env.PATH = originalPath;
     }
 
-    const taskFile = await readFile(
-      path.join(workspaceDir, 'projects', 'project-1', 'task-1.md'),
-      'utf8'
-    );
-    expect(taskFile).toContain('Title: Drafted via code');
+    const taskFilePath = await findTaskFile(workspaceDir, 'project-1');
+    const taskFile = await readFile(taskFilePath, 'utf8');
+    expect(taskFile).toContain('title: Drafted via code');
     expect(taskFile).toContain('Created from code.');
   });
 
@@ -277,12 +301,7 @@ describe.sequential('Phase5 CLI integration', () => {
     await runCli(['project', 'create', 'CLI Project', '--slug', 'project-1']);
     await runCli(['create', 'Initial task', '--body', 'first body']);
 
-    const originalTaskPath = path.join(
-      workspaceDir,
-      'projects',
-      'project-1',
-      'task-1.md'
-    );
+    const originalTaskPath = await findTaskFile(workspaceDir, 'project-1');
     const renamedTaskPath = path.join(
       workspaceDir,
       'projects',
@@ -302,19 +321,26 @@ describe.sequential('Phase5 CLI integration', () => {
     expect(updateResult.stderr).toEqual([]);
 
     const listResult = await runCli(['list', '--json']);
-    expect(JSON.parse(listResult.stdout[0])).toEqual([
-      {
-        id: 1,
-        project: 'project-1',
-        title: 'Updated task',
-        status: 'order',
-        priority: 'medium',
-        path: 'projects/project-1/t1-hello-world.md',
-      },
-    ]);
+    const listEntries = JSON.parse(listResult.stdout[0]) as {
+      id: number;
+      project: string;
+      title: string;
+      status: string;
+      priority: string;
+      path: string;
+    }[];
+    expect(listEntries).toHaveLength(1);
+    expect(listEntries[0]).toMatchObject({
+      id: 1,
+      project: 'project-1',
+      title: 'Updated task',
+      status: 'order',
+      priority: 'medium',
+      path: 'projects/project-1/t1-hello-world.md',
+    });
 
     const taskFile = await readFile(renamedTaskPath, 'utf-8');
-    expect(taskFile).toContain('Title: Updated task');
+    expect(taskFile).toContain('title: Updated task');
     expect(taskFile).toContain('updated body');
   });
 });

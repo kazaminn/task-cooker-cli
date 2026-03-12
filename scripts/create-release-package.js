@@ -1,8 +1,8 @@
 import {
   cp,
   mkdir,
-  readdir,
   readFile,
+  readdir,
   rm,
   stat,
   writeFile,
@@ -238,11 +238,7 @@ async function createZipArchive(sourceDir, targetZipPath) {
   await rm(targetZipPath, { force: true });
   await writeFile(
     targetZipPath,
-    Buffer.concat([
-      ...localRecords,
-      centralDirectory,
-      endOfCentralDirectory,
-    ])
+    Buffer.concat([...localRecords, centralDirectory, endOfCentralDirectory])
   );
 }
 

@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -29,10 +29,19 @@ describe('FileTaskRepository', () => {
     };
 
     await repo.save(task);
-    await expect(repo.findById('project-1', 3)).resolves.toEqual({
-      ...task,
-      path: 'projects/project-1/task-3.md',
+    const found = await repo.findById('project-1', 3);
+    expect(found).toMatchObject({
+      id: 3,
+      projectSlug: 'project-1',
+      title: 'task title',
+      description: 'task body',
+      status: 'prep',
+      priority: 'medium',
+      dueDate: '2026-03-10',
+      subtasks: [{ title: 'sub', done: false, children: [] }],
+      linkedIssueIds: [1, 2],
     });
+    expect(found?.path).toMatch(/^projects\/project-1\/.+\.md$/);
   });
 
   it('findAll returns sorted tasks', async () => {
@@ -65,7 +74,7 @@ describe('FileTaskRepository', () => {
     ]);
   });
 
-  it('finds and preserves renamed task files', async () => {
+  it('saves to existing path when task.path is set', async () => {
     const root = await createRoot();
     const repo = new FileTaskRepository(root);
 
@@ -79,51 +88,36 @@ describe('FileTaskRepository', () => {
       linkedIssueIds: [],
     });
 
-    const original = path.join(root, 'projects', 'project-1', 'task-1.md');
-    const renamed = path.join(
-      root,
-      'projects',
-      'project-1',
-      'task-1-hello-world.md'
-    );
-    await rename(original, renamed);
-
-    await expect(repo.findById('project-1', 1)).resolves.toMatchObject({
-      id: 1,
-      path: 'projects/project-1/task-1-hello-world.md',
-      title: 'hello',
-    });
+    const found = await repo.findById('project-1', 1);
+    expect(found).not.toBeNull();
 
     await repo.save({
-      id: 1,
-      projectSlug: 'project-1',
-      path: 'projects/project-1/task-1-hello-world.md',
+      ...found!,
       title: 'updated',
       status: 'prep',
-      priority: 'high',
-      subtasks: [],
-      linkedIssueIds: [],
     });
 
-    await expect(readFile(renamed, 'utf-8')).resolves.toContain(
-      'Title: updated'
-    );
+    const updated = await repo.findById('project-1', 1);
+    expect(updated).toMatchObject({ id: 1, title: 'updated', status: 'prep' });
+    expect(updated?.path).toBe(found?.path);
   });
 
-  it('accepts short task prefixes like t1-hello-world.md', async () => {
+  it('reads arbitrary task filenames like nyanyan.md', async () => {
     const root = await createRoot();
     const repo = new FileTaskRepository(root);
     const projectDir = path.join(root, 'projects', 'project-1');
     await mkdir(projectDir, { recursive: true });
 
     await writeFile(
-      path.join(projectDir, 't1-hello-world.md'),
+      path.join(projectDir, 'nyanyan.md'),
       [
-        'Id: 1',
-        'Project: project-1',
-        'Title: hello short',
-        'Status: order',
-        'Priority: medium',
+        '---',
+        'id: 7',
+        'title: nyan task',
+        'status: order',
+        'priority: medium',
+        'linkedIssueIds: []',
+        '---',
         '',
         'body',
         '',
@@ -131,17 +125,17 @@ describe('FileTaskRepository', () => {
       'utf-8'
     );
 
-    await expect(repo.findById('project-1', 1)).resolves.toMatchObject({
-      id: 1,
-      path: 'projects/project-1/t1-hello-world.md',
-      title: 'hello short',
+    await expect(repo.findById('project-1', 7)).resolves.toMatchObject({
+      id: 7,
+      path: 'projects/project-1/nyanyan.md',
+      title: 'nyan task',
     });
 
     await expect(repo.findAll('project-1')).resolves.toMatchObject([
-      { id: 1, path: 'projects/project-1/t1-hello-world.md' },
+      { id: 7, path: 'projects/project-1/nyanyan.md' },
     ]);
 
-    await repo.remove('project-1', 1);
-    await expect(repo.findById('project-1', 1)).resolves.toBeNull();
+    await repo.remove('project-1', 7);
+    await expect(repo.findById('project-1', 7)).resolves.toBeNull();
   });
 });

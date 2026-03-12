@@ -16,6 +16,21 @@ export interface MixRepository {
   remove(projectSlug: string, id: number): Promise<void>;
 }
 
+function toStr(v: unknown, fallback = ''): string {
+  if (v == null) return fallback;
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  return fallback;
+}
+
+function yamlDateToString(v: unknown): string | undefined {
+  if (!v) return undefined;
+  if (v instanceof Date) return v.toISOString().replace('Z', '');
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number') return String(v);
+  return undefined;
+}
+
 function parseComments(body: string): MixComment[] {
   const lines = body.split('\n');
   const comments: MixComment[] = [];
@@ -50,24 +65,36 @@ function formatComments(comments: MixComment[]): string {
 
 function toMix(projectSlug: string, raw: string): Mix {
   const parsed = parseIssueFile(raw);
+  const m = parsed.metadata;
 
   return {
-    id: Number(parsed.metadata.Id ?? '0'),
+    id: Number(m.id ?? 0),
     projectSlug,
-    title: parsed.metadata.Title ?? '',
-    status: (parsed.metadata.Status ?? 'open') as MixStatus,
+    title: toStr(m.title),
+    status: toStr(m.status, 'open') as MixStatus,
     comments: parseComments(parsed.body),
+    created: yamlDateToString(m.created),
+    updated: yamlDateToString(m.updated),
+    aliases: Array.isArray(m.aliases)
+      ? m.aliases.map((a) => toStr(a))
+      : undefined,
   };
 }
 
 function toIssueFile(mix: Mix): string {
+  const metadata: Record<string, unknown> = {
+    id: mix.id,
+    project: mix.projectSlug,
+    title: mix.title,
+    status: mix.status,
+  };
+
+  if (mix.created) metadata.created = mix.created;
+  if (mix.updated) metadata.updated = mix.updated;
+  metadata.aliases = mix.aliases ?? [];
+
   return formatIssueFile({
-    metadata: {
-      Id: String(mix.id),
-      Project: mix.projectSlug,
-      Title: mix.title,
-      Status: mix.status,
-    },
+    metadata,
     subtasks: [],
     body: formatComments(mix.comments),
   });

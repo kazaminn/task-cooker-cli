@@ -21,10 +21,36 @@ describe('FileProjectRepository', () => {
       overview: '概要',
     });
 
-    await expect(repo.findBySlug('project-1')).resolves.toEqual({
+    const found = await repo.findBySlug('project-1');
+    expect(found).toMatchObject({
       slug: 'project-1',
       name: 'プロジェクト1',
       overview: '概要',
+    });
+  });
+
+  it('saves and finds project with status and ObsidianMetadata', async () => {
+    const root = await createRoot();
+    const repo = new FileProjectRepository(root);
+
+    await repo.save({
+      slug: 'project-2',
+      name: 'TaskCooker',
+      status: 'cooking',
+      overview: 'overview',
+      created: '2026-03-12T10:00:00',
+      updated: '2026-03-12T10:00:00',
+      aliases: ['project-2'],
+    });
+
+    const found = await repo.findBySlug('project-2');
+    expect(found).toMatchObject({
+      slug: 'project-2',
+      name: 'TaskCooker',
+      status: 'cooking',
+      created: '2026-03-12T10:00:00',
+      updated: '2026-03-12T10:00:00',
+      aliases: ['project-2'],
     });
   });
 
